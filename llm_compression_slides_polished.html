@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Qwen3-235B 의존도를 줄이기 위한 LLM 경량화 방법론 조사</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f172a;
+    --panel: #ffffff;
+    --ink: #0f172a;
+    --muted: #475569;
+    --line: #e2e8f0;
+    --soft: #f8fafc;
+    --accent: #2563eb;
+    --accent2: #0d9488;
+    --accent3: #c2410c;
+    --accent4: #7c3aed;
+    --warn: #b45309;
+    --bad: #b91c1c;
+    --good: #15803d;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    overflow: hidden;
+  }
+
+  /* Deck container — 16:9 fixed-aspect stage */
+  #deck {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .stage {
+    position: relative;
+    width: min(96vw, calc(96vh * 16 / 9));
+    height: min(96vh, calc(96vw * 9 / 16));
+    background: var(--panel);
+    border-radius: 14px;
+    box-shadow: 0 22px 60px rgba(0,0,0,0.45);
+    overflow: hidden;
+  }
+  section.slide {
+    position: absolute; inset: 0;
+    display: none;
+    padding: 38px 56px 56px;
+    flex-direction: column;
+    background: var(--panel);
+  }
+  section.slide.active { display: flex; }
+  section.slide.title-slide { justify-content: center; align-items: flex-start; padding: 56px 80px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #fff; }
+  section.slide.title-slide h1 { color: #fff; font-size: 2.6rem; line-height: 1.2; margin-bottom: 16px; max-width: 95%; }
+  section.slide.title-slide .sub { color: #94a3b8; font-size: 1.15rem; max-width: 90%; margin-bottom: 26px; }
+  section.slide.title-slide .meta { color: #64748b; font-size: 0.9rem; }
+
+  /* Slide header */
+  .slide-tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+  .slide-tag.t1 { color: var(--accent); }
+  .slide-tag.t2 { color: var(--good); }
+  .slide-tag.t3 { color: var(--accent4); }
+  .slide-tag.t4 { color: var(--accent3); }
+  .slide-tag.t5 { color: var(--accent2); }
+  .slide-tag.t6 { color: #db2777; }
+  .slide-tag.t7 { color: var(--muted); }
+
+  .slide h2 { font-size: 1.78rem; line-height: 1.25; margin-bottom: 4px; color: var(--ink); }
+  .slide .lede { color: var(--muted); font-size: 1rem; margin-bottom: 18px; max-width: 92%; }
+
+  /* Content area */
+  .body { flex: 1; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+
+  /* Grids */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+
+  .card { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card h3 { font-size: 0.92rem; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+  .card p, .card li { font-size: 0.86rem; color: #1f2937; }
+  .card ul { padding-left: 18px; }
+  .card .tagline { font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .card.accent1 { border-left: 4px solid var(--accent); background: #eff6ff; }
+  .card.accent2 { border-left: 4px solid var(--good); background: #f0fdf4; }
+  .card.accent3 { border-left: 4px solid var(--accent4); background: #f5f3ff; }
+  .card.accent4 { border-left: 4px solid var(--accent3); background: #fff7ed; }
+  .card.accent5 { border-left: 4px solid var(--accent2); background: #f0fdfa; }
+  .card.warn   { border-left: 4px solid #f59e0b; background: #fffbeb; }
+  .card.bad    { border-left: 4px solid var(--bad); background: #fef2f2; }
+  .card.note   { border-left: 4px solid var(--accent); background: #eff6ff; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { background: #f1f5f9; padding: 8px 10px; text-align: left; border: 1px solid var(--line); font-weight: 700; color: var(--ink); }
+  td { padding: 8px 10px; border: 1px solid var(--line); color: #1f2937; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  td.col-head { background: #f8fafc; font-weight: 700; }
+  td code, p code, li code, .badge code { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 3px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 0.85em; color: #3730a3; }
+
+  /* Badges */
+  .badge { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 2px 9px; border-radius: 12px; vertical-align: middle; margin-right: 4px; }
+  .badge.paper { background: #dcfce7; color: var(--good); }
+  .badge.bridge { background: #fef3c7; color: var(--warn); }
+  .badge.system { background: #e0e7ff; color: #4338ca; }
+  .badge.serving { background: #ccfbf1; color: #115e59; }
+  .badge.decoding { background: #fce7f3; color: #9d174d; }
+  .badge.cond { background: #fef3c7; color: #92400e; }
+  .badge.native { background: #cffafe; color: #155e75; }
+  .badge.warn { background: #fee2e2; color: var(--bad); }
+
+  /* Concept diagram */
+  .cd { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 18px 18px 14px; }
+  .cd-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .cd-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .cd-box { background: #fff; border: 2px solid #cbd5e1; border-radius: 8px; padding: 12px 16px; font-size: 0.84rem; font-weight: 600; color: var(--ink); text-align: center; min-width: 110px; }
+  .cd-box small { display: block; font-weight: 400; font-size: 0.72rem; color: var(--muted); margin-top: 3px; }
+  .cd-box.b1 { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+  .cd-box.b2 { background: #f0fdf4; border-color: #86efac; color: var(--good); }
+  .cd-box.b3 { background: #fffbeb; border-color: #fcd34d; color: var(--warn); }
+  .cd-box.b4 { background: #f5f3ff; border-color: #c4b5fd; color: #6d28d9; }
+  .cd-box.b5 { background: #fff7ed; border-color: #fed7aa; color: var(--accent3); }
+  .cd-box.b6 { background: #fef2f2; border-color: #fca5a5; color: var(--bad); }
+  .cd-box.b7 { background: #ccfbf1; border-color: #5eead4; color: #115e59; }
+  .cd-box.b8 { background: #f0fdfa; border-color: #99f6e4; color: #0f766e; }
+  .cd-arrow { font-size: 1.4rem; color: #94a3b8; font-weight: 700; }
+  .cd-cap { font-size: 0.74rem; color: var(--muted); font-style: italic; text-align: center; margin-top: 10px; }
+
+  /* Pill list */
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill { padding: 6px 12px; border-radius: 14px; font-size: 0.78rem; font-weight: 600; background: #e2e8f0; color: var(--ink); }
+  .pill.red { background: #fee2e2; color: var(--bad); }
+  .pill.yellow { background: #fef3c7; color: var(--warn); }
+  .pill.green { background: #dcfce7; color: var(--good); }
+  .pill.blue { background: #dbeafe; color: #1d4ed8; }
+
+  /* Layered bars (e.g. quantization) */
+  .layered { display: flex; flex-direction: column; gap: 6px; }
+  .lyr { padding: 8px 12px; border-radius: 4px; font-size: 0.82rem; font-weight: 600; color: #fff; display: flex; justify-content: space-between; }
+  .lyr.l16 { background: #1e3a8a; width: 100%; }
+  .lyr.l8  { background: #2563eb; width: 60%; }
+  .lyr.l4  { background: #60a5fa; width: 32%; color: #1e3a8a; }
+  .lyr.lora { background: #fef3c7; color: var(--warn); width: 12%; border: 1px solid #fcd34d; }
+
+  /* Before/after split */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .split .col { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .split .col h4 { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; }
+  .split .col.before { border-top: 4px solid #ef4444; }
+  .split .col.after { border-top: 4px solid #22c55e; }
+
+  ul.tight { padding-left: 18px; }
+  ul.tight li { font-size: 0.88rem; margin-bottom: 4px; color: #1f2937; }
+  p.small { font-size: 0.84rem; color: var(--muted); }
+
+  /* Footer / chrome */
+  .chrome {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 18px;
+    font-size: 0.72rem; color: var(--muted);
+    border-top: 1px solid var(--line);
+    background: rgba(248,250,252,0.92);
+  }
+  .chrome .crumb { font-weight: 700; letter-spacing: 0.6px; }
+  .chrome .nav { display: flex; gap: 8px; align-items: center; }
+  .chrome .nav button {
+    background: #fff; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 0.74rem;
+  }
+  .chrome .nav button:hover { background: var(--soft); color: var(--ink); }
+  .chrome .pageno { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); }
+  .notes-status { position: fixed; right: 18px; bottom: 42px; z-index: 80; background: rgba(15,23,42,0.82); color: #e2e8f0; border: 1px solid rgba(226,232,240,0.25); border-radius: 999px; padding: 4px 10px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.3px; }
+  body.notes-visible .notes-status { background: rgba(37,99,235,0.90); color: #fff; }
+
+  /* Speaker notes - hidden in screen mode */
+  aside.speaker-notes { display: none; }
+
+  /* Print mode — show one slide per page, plus speaker notes */
+  @media print {
+    @page { size: 16in 9in; margin: 0; }
+    html, body { background: #fff; height: auto; overflow: visible; }
+    #deck { display: block; width: auto; height: auto; }
+    .stage { width: 16in; height: 9in; box-shadow: none; border-radius: 0; page-break-after: always; }
+    section.slide { display: flex !important; position: relative; padding: 0.6in 0.9in 1.2in; }
+    section.slide.title-slide h1 { color: #fff; }
+    .chrome { position: absolute; }
+    aside.speaker-notes {
+      display: block;
+      background: #f8fafc;
+      border-top: 2px solid var(--accent);
+      padding: 0.4in 0.9in;
+      font-size: 12pt;
+      color: #1f2937;
+      page-break-before: avoid;
+      page-break-after: always;
+    }
+    aside.speaker-notes h4 { font-size: 11pt; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6pt; }
+    aside.speaker-notes ul { padding-left: 20pt; }
+    aside.speaker-notes li { margin-bottom: 4pt; }
+  }
+
+  /* Notes-visible mode toggle (when query string ?notes=1) */
+  body.notes-visible aside.speaker-notes {
+    display: block;
+    position: absolute;
+    left: 50%; transform: translateX(-50%);
+    bottom: 36px;
+    width: min(94vw, calc(96vh * 16 / 9));
+    max-height: 32vh;
+    overflow: auto;
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 0.82rem;
+    z-index: 50;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  body.notes-visible aside.speaker-notes h4 { font-size: 0.74rem; color: #93c5fd; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  body.notes-visible aside.speaker-notes ul { padding-left: 18px; }
+  body.notes-visible aside.speaker-notes li { margin-bottom: 3px; }
+  body.notes-visible aside.speaker-notes { display: none; }
+  body.notes-visible section.slide.active aside.speaker-notes { display: block; }
+</style>
+</head>
+<body>
+<div id="deck">
+<div class="stage">
+
+<!-- Slide 1 — Title -->
+<section class="slide title-slide active">
+  <h1>Qwen3-235B 의존도를 줄이기 위한<br>LLM 경량화 방법론 조사</h1>
+  <p class="sub">모델 압축 · Agent KD · Tool/Context 절감 · 남은 호출의 Serving/Decoding 최적화</p>
+  <aside class="speaker-notes">
+    <h4>Speaker notes</h4>
+    <ul>
+      <li><strong>우리 workflow로의 해석:</strong> 이 자료는 Qwen3-235B 호출 비용을 줄이는 선택지를 taxonomy로 정리한 발표용 deck이다.</li>
+      <li><strong>시스템 패턴:</strong> 논문 기반 방법론, 도메인 참고 사례, 시스템 패턴, serving/runtime, decoding optimization을 의도적으로 분리한다.</li>
+      <li><strong>우리 workflow로의 해석:</strong> 핵심 질문은 “큰 teacher를 없앨 것인가, 덜 부를 것인가, 남은 호출을 싸게 실행할 것인가”다.</li>
+    </ul>
+  </aside>
+</section>
+
+<!-- Slide 2 — Scope -->
+<section class="slide">
+  <span class="slide-tag">발표 범위</span>
+  <h2>오늘 다루는 것 / 다루지 않는 것</h2>
+  <p class="lede">범위 선언은 이 장에만 둔다. 이후 슬라이드는 방법론의 문제정의와 개선 포인트에 집중한다.</p>
+  <div class="body">
+    <div class="grid-2">
+      <div class="card accent1"><div class="tagline">다루는 것</div><ul class="tight">
+        <li>235B weight memory·serving latency를 줄이는 quantization</li>
+        <li>작은 student를 만드는 KD·Agent trajectory distillation</li>
+        <li>tool schema, action space, context accumulation 비용 절감</li>
+        <li>fallback/teacher 호출이 남을 때의 serving/runtime·decoding 최적화</li>
+      </ul></div>
+      <div class="card bad"><div class="tagline">다루지 않는 것</div><ul class="tight">
+        <li>특정 방법 채택이나 실험 우선순위 결정</li>
+        <li>Profile Agent의 확정 아키텍처 또는 step별 모델 배치</li>
+        <li>Qwen3 내부 router/expert 접근 가능성 가정</li>
+        <li>외부 요약 자료나 원문 figure 재사용</li>
+      </ul></div>
+    </div>
+    <div class="card note"><p><strong>라벨:</strong> <span class="badge paper">논문 기반 방법론</span> <span class="badge bridge">도메인 참고 사례</span> <span class="badge system">시스템 패턴</span> <span class="badge serving">serving/runtime</span> <span class="badge decoding">decoding optimization</span></p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>우리 workflow로의 해석:</strong> 이 장은 발표 전체의 안전장치다. 이후 각 슬라이드마다 같은 방어 문구를 반복하지 않는다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Profile Agent는 마지막에 적용 가능성으로만 짧게 연결하고, 설계안처럼 말하지 않는다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> 분류 기준은 agent_compression.html의 taxonomy를 따른다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 3 — Cost axes -->
+<section class="slide">
+  <span class="slide-tag">개념 정리</span>
+  <h2>“줄인다”의 의미: 서로 다른 비용 축</h2>
+  <p class="lede">같은 latency 감소라도 weight, context, call count, decoding step 중 무엇을 치는지에 따라 평가 지표가 달라진다.</p>
+  <div class="body">
+    <div class="grid-7">
+      <div class="card accent1"><h3>① Weight</h3><p>parameter memory · precision · GPU residency</p></div>
+      <div class="card accent2"><h3>② Training</h3><p>full fine-tuning memory · optimizer state</p></div>
+      <div class="card accent3"><h3>③ Teacher</h3><p>output/logit/router 접근 · KD 권한</p></div>
+      <div class="card accent4"><h3>④ Tool</h3><p>schema token · action 후보 수</p></div>
+      <div class="card accent5"><h3>⑤ Context</h3><p>action/observation/tool result 누적</p></div>
+      <div class="card warn"><h3>⑥ Calls</h3><p>235B 호출 비율 · fallback rate</p></div>
+      <div class="card note"><h3>⑦ Runtime</h3><p>KV cache · prefix · decoding bottleneck</p></div>
+    </div>
+    <div class="cd"><div class="cd-title">핵심 구분</div><div class="cd-row"><div class="cd-box b1">모델을 작게</div><div class="cd-arrow">≠</div><div class="cd-box b3">큰 모델을 덜 호출</div><div class="cd-arrow">≠</div><div class="cd-box b7">남은 호출을 빠르게</div></div><p class="cd-cap">이 그림이 보여주는 핵심: 압축, 라우팅, runtime 최적화는 같은 층위가 아니다.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>시스템 패턴:</strong> 이 장은 시스템 패턴을 포함한 전체 지도다. KD는 weight와 teacher 의존도를 줄일 수 있지만 context 길이나 call orchestration 문제를 자동으로 없애지는 않는다.</li>
+    <li><strong>시스템 패턴:</strong> vLLM이나 decoding optimization은 모델 압축이 아니라 남은 호출의 실행 비용을 낮추는 축이다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 4 — Map -->
+<section class="slide">
+  <span class="slide-tag">전체 map</span>
+  <h2>방법론 map: 어느 비용 축을 줄이나</h2>
+  <p class="lede">슬라이드 deck은 모델 → agent workflow → system/runtime 순서로 내려간다.</p>
+  <div class="body">
+    <table>
+      <thead><tr><th>레이어</th><th>방법</th><th>줄이는 것</th><th>줄이지 못하는 것</th></tr></thead>
+      <tbody>
+        <tr><td class="col-head">Model compression</td><td>GPTQ/AWQ, QLoRA</td><td>weight memory 또는 학습 메모리</td><td>agent workflow correctness 보장</td></tr>
+        <tr><td class="col-head">KD</td><td>Response, Logit, On-policy, Preference</td><td>235B serving 의존도</td><td>schema/action sequence 보장</td></tr>
+        <tr><td class="col-head">Agent KD</td><td>Trajectory KD, Structured Agent Distillation</td><td>reason→act→observe 학습 공백</td><td>tool-free workflow 외삽은 확인 필요</td></tr>
+        <tr><td class="col-head">Tool/Context</td><td>Tool internalization, selection, AgentDiet/ACON</td><td>prompt token·action space·누적 context</td><td>model size 자체</td></tr>
+        <tr><td class="col-head">System/runtime</td><td>Cascade, vLLM/SGLang/CacheGen, decoding</td><td>큰 모델 호출 비율 또는 남은 호출 비용</td><td>student quality 자체</td></tr>
+      </tbody>
+    </table>
+    <p class="small">같은 논문 기반 방법론이라도 적용 레이어가 다르면 성공 지표가 달라진다.</p>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>시스템 패턴:</strong> 이 장은 분류 기준을 고정한다. serving/runtime과 decoding optimization은 model compression/KD로 분류하지 않는다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> 뒤에서 논문 슬라이드가 나와도 “어느 레이어의 문제를 푸는가”를 먼저 읽으면 된다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 5 — Quantization -->
+<section class="slide">
+  <span class="slide-tag t1">Part 1 · 모델 자체</span>
+  <h2>Quantization — 235B weight memory·serving latency 절감 <span class="badge paper">논문 기반 방법론</span></h2>
+  <p class="lede">GPTQ/AWQ의 문제정의는 FP16/BF16 serving의 메모리·대역폭 부담을 낮추는 것이다.</p>
+  <div class="body">
+    <div class="grid-2">
+      <div class="card accent1"><h3>문제정의 → 핵심 방법</h3><ul class="tight">
+        <li><strong>문제:</strong> 235B FP16/BF16 weight는 memory residency와 bandwidth가 크고, long context에서는 KV cache 부담도 함께 커진다.</li>
+        <li><strong>GPTQ:</strong> post-training quantization으로 weight precision을 낮춰 큰 모델의 serving footprint를 줄인다.</li>
+        <li><strong>AWQ:</strong> activation-aware로 중요한 channel을 보호해 INT4 serving 손실을 낮추려 한다.</li>
+      </ul></div>
+      <div class="card warn"><h3>한계와 평가 분리</h3><ul class="tight">
+        <li>PPL 유지가 schema validity/action accuracy 유지와 같지 않다.</li>
+        <li>KV cache 자체는 별도 축이다. weight quantization만으로 긴 context 비용이 사라지지 않는다.</li>
+        <li>calibration 분포가 agent prompt·JSON/action 분포와 다르면 확인 필요.</li>
+      </ul></div>
+    </div>
+    <table><thead><tr><th>General quality metric</th><th>Agent metric</th><th>왜 분리하는가</th></tr></thead><tbody>
+      <tr><td>PPL, MMLU류 score, generic QA</td><td>schema validity, action accuracy, task success</td><td>agent에서는 맞는 문장보다 실행 가능한 구조가 중요</td></tr>
+      <tr><td>avg latency, throughput</td><td>p95 end-to-end latency, retry rate</td><td>workflow 실패·재시도 비용이 평균값을 가릴 수 있음</td></tr>
+    </tbody></table>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>논문 직접 근거:</strong> 이 슬라이드는 논문 기반 방법론이다. Quantization은 “student를 만든다”가 아니라 같은 큰 모델을 더 작은 precision으로 serving하는 방법이다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B 관점에서는 weight memory와 serving latency를 직접 치지만, agent metric은 별도로 봐야 한다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 6 — QLoRA -->
+<section class="slide">
+  <span class="slide-tag t1">Part 1 · 모델 자체</span>
+  <h2>QLoRA — 작은 base/student를 낮은 비용으로 task adaptation <span class="badge paper">논문 기반 방법론</span></h2>
+  <p class="lede">QLoRA는 235B를 직접 10B로 만드는 방법이 아니라 full fine-tuning memory를 줄이는 방법이다.</p>
+  <div class="body">
+    <div class="split">
+      <div class="col before"><h4>줄이는 것</h4><ul class="tight">
+        <li>full fine-tuning 시 필요한 activation·optimizer·gradient 메모리</li>
+        <li>base weight는 4-bit로 frozen하고 작은 LoRA adapter만 학습</li>
+        <li>작은 Qwen 계열 base/student의 task-specific adaptation 비용</li>
+      </ul></div>
+      <div class="col after"><h4>줄이지 않는 것</h4><ul class="tight">
+        <li>inference call count: workflow가 여러 번 호출하면 호출 수는 그대로</li>
+        <li>student의 base parameter 수 자체: 학습 방법이지 pruning이 아님</li>
+        <li>teacher 데이터 품질 문제: task-specific dataset은 여전히 필요</li>
+      </ul></div>
+    </div>
+    <div class="cd"><div class="cd-title">적용 조건</div><div class="cd-row"><div class="cd-box b1">작은 base/student</div><div class="cd-arrow">+</div><div class="cd-box b3">task-specific dataset</div><div class="cd-arrow">→</div><div class="cd-box b2">adapter 학습</div></div><p class="cd-cap">이 그림이 보여주는 핵심: QLoRA는 압축 결과가 아니라 adaptation 비용을 줄이는 학습 경로다.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>논문 직접 근거:</strong> 이 슬라이드는 논문 기반 방법론이다. 쉬운 말로는 “큰 weight는 얼리고 작은 adapter만 고친다”다.</li>
+    <li><strong>논문 직접 근거:</strong> Qwen3-235B를 teacher로 써서 만든 response나 trajectory dataset을 작은 student에 맞출 때 QLoRA가 연결될 수 있다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 7 — Qwen teacher -->
+<section class="slide">
+  <span class="slide-tag t2">Part 2 · KD</span>
+  <h2>Qwen3 teacher → student: off-policy와 on-policy를 분리한다 <span class="badge paper">논문 기반 방법론</span></h2>
+  <p class="lede">Qwen3 Technical Report는 lightweight model 학습에서 teacher response 기반 단계와 student rollout 기반 단계를 구분한다.</p>
+  <div class="body">
+    <div class="grid-2">
+      <div class="card accent1"><h3>Off-policy distillation</h3><ul class="tight">
+        <li><strong>입력:</strong> teacher가 만든 response 또는 reasoning/no-reasoning 출력</li>
+        <li><strong>학습:</strong> student SFT target으로 사용</li>
+        <li><strong>접근 권한:</strong> teacher output만 있어도 가능</li>
+      </ul></div>
+      <div class="card accent3"><h3>On-policy distillation</h3><ul class="tight">
+        <li><strong>입력:</strong> student가 실제 생성한 trajectory/response</li>
+        <li><strong>학습:</strong> teacher가 student output을 평가하거나 logits/KL로 보정</li>
+        <li><strong>접근 권한:</strong> logits 가능 여부에 따라 강도가 달라짐</li>
+      </ul></div>
+    </div>
+    <table><thead><tr><th>Teacher 접근</th><th>가능한 KD</th><th>Qwen3-235B-A22B 연결</th></tr></thead><tbody>
+      <tr><td>output만 가능</td><td>Response KD, preference data 생성</td><td>black-box KD. MoE 내부 지식은 output에 드러난 것만 사용</td></tr>
+      <tr><td>teacher logits 가능</td><td>Logit KD, on-policy KL</td><td>token 분포를 더 세밀하게 맞춤. API/serving 권한 확인 필요</td></tr>
+      <tr><td>router/expert 접근 가능</td><td>MoE-aware KD</td><td>가능하다고 가정하지 않음. 접근 가능할 때만 expert coverage 논의 가능</td></tr>
+    </tbody></table>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>논문 직접 근거:</strong> 이 슬라이드는 논문 기반 방법론이다. off-policy는 “teacher 답안을 보고 베끼는 단계”, on-policy는 “student가 실제로 낸 답을 teacher가 다시 잡아주는 단계”로 설명하면 쉽다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B-A22B는 MoE teacher이므로 output-only KD와 router/expert를 보는 MoE-aware KD는 다른 수준의 문제다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 8 — KD taxonomy -->
+<section class="slide">
+  <span class="slide-tag t2">Part 2 · KD</span>
+  <h2>KD 4가지 — teacher 접근 권한이 선택지를 가른다 <span class="badge paper">논문 기반 방법론</span></h2>
+  <p class="lede">줄이는 대상은 teacher serving 의존도. 방식별로 필요한 signal과 agent-level 확인 지표가 다르다.</p>
+  <div class="body">
+    <table>
+      <thead><tr><th>KD</th><th>Teacher 접근 권한</th><th>필요 데이터</th><th>줄이는 것</th><th>주의점 / 확인 지표</th></tr></thead>
+      <tbody>
+        <tr><td>Response KD</td><td>output only</td><td>prompt → teacher answer</td><td>teacher 호출 의존</td><td>불확실성·action sequence는 숨겨짐</td></tr>
+        <tr><td>Token/logit KD</td><td>token logits</td><td>입력별 teacher distribution</td><td>token-level mismatch</td><td>logit 접근 권한 필요, rollout error 별도 확인</td></tr>
+        <tr><td>On-policy KD</td><td>teacher feedback 또는 KL</td><td>student-generated samples</td><td>train/serve mismatch</td><td>teacher 평가 비용·exploration safety 확인</td></tr>
+        <tr><td>Preference KD</td><td>ranking/feedback</td><td>chosen/rejected pair</td><td>응답 선택 기준 alignment</td><td>schema validity·merge/action trace 보장 아님</td></tr>
+      </tbody>
+    </table>
+    <div class="card warn"><p><strong>핵심:</strong> KD 선택은 “어떤 teacher signal을 볼 수 있는가”에서 출발. Profile Agent workflow 보존은 trajectory/schema 지표로 별도 검증 필요.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>논문 직접 근거:</strong> Response KD는 teacher output을 SFT target으로 쓰는 가장 단순한 형태이며, teacher answer만 확보해도 시작할 수 있다.</li>
+    <li><strong>논문 직접 근거:</strong> Token/logit KD는 teacher의 token distribution을 맞추므로 logits 또는 이에 준하는 확률 정보가 필요하다.</li>
+    <li><strong>논문 직접 근거:</strong> GKD류 on-policy distillation은 student가 실제로 낸 sample을 teacher feedback 또는 KL signal로 보정해 train/serve mismatch를 줄이려는 접근이다.</li>
+    <li><strong>논문 직접 근거:</strong> Preference KD/PLaD 계열은 chosen/rejected pair나 ranking signal을 이용해 응답 선택 기준을 전달한다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B-A22B를 black-box teacher로만 쓸 수 있다면 response/preference 중심으로 제한된다. Logit KD나 on-policy KL은 logits 접근 권한 확인이 먼저다.</li>
+    <li><strong>확인 필요:</strong> 어떤 KD도 Profile Agent의 schema validity, merge/action decision, missing_EOS_rate를 자동 보장하지 않으므로 agent-level metric을 별도로 둔다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 9 — Why general KD insufficient -->
+<section class="slide">
+  <span class="slide-tag t2">Part 2 · KD</span>
+  <h2>일반 KD ≠ agent workflow 보존 <span class="badge paper">논문 기반 방법론</span></h2>
+  <p class="lede">agent에서는 final answer가 맞아도 중간 action sequence가 틀리면 workflow가 깨질 수 있다.</p>
+  <div class="body">
+    <div class="split">
+      <div class="col before"><h4>Final answer KD</h4><ul class="tight">
+        <li>입력과 최종 응답만 학습</li>
+        <li>중간 계획, schema decision, observation 처리 과정은 숨겨짐</li>
+        <li>겉보기 답변은 유사해도 retry·invalid JSON·wrong merge가 남을 수 있음</li>
+      </ul></div>
+      <div class="col after"><h4>Trajectory KD</h4><ul class="tight">
+        <li>reason → act → observe 흐름을 student가 학습</li>
+        <li>중간 action과 observation 반응을 supervision 대상으로 노출</li>
+        <li>workflow 재현성과 디버깅 가능성을 높임</li>
+      </ul></div>
+    </div>
+    <div class="cd"><div class="cd-title">before / after</div><div class="cd-row"><div class="cd-box b6">prompt → final answer</div><div class="cd-arrow">vs</div><div class="cd-box b1">reason</div><div class="cd-arrow">→</div><div class="cd-box b3">act</div><div class="cd-arrow">→</div><div class="cd-box b2">observe</div></div><p class="cd-cap">이 그림이 보여주는 핵심: agent KD는 결과가 아니라 실행 경로를 학습 대상으로 올린다.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>논문 직접 근거:</strong> 이 슬라이드는 논문 기반 방법론이다. agent의 실패는 “답이 조금 이상함”보다 “중간 단계가 잘못되어 전체 workflow가 중단됨”으로 나타난다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B teacher가 만든 trajectory가 있다면 final answer만 버리지 말고 중간 structure를 어떻게 보존할지 검토할 수 있다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 10 — Structured Agent Distillation -->
+<section class="slide">
+  <span class="slide-tag t2">Part 2 · Agent KD</span>
+  <h2>Structured Agent Distillation — [REASON]과 [ACT]를 분리한다 <span class="badge paper">논문 기반 방법론</span></h2>
+  <p class="lede">긴 reasoning token이 짧지만 중요한 action token을 압도하는 imitation loss 문제를 줄이려는 접근이다.</p>
+  <div class="body">
+    <div class="grid-2">
+      <div class="card accent1"><h3>문제정의</h3><ul class="tight">
+        <li>일반 imitation loss는 전체 token을 같은 방식으로 평균낸다.</li>
+        <li>reasoning span은 길고, action span은 짧지만 실행 성공에 직접적이다.</li>
+        <li>결과적으로 중요한 action token supervision이 희석될 수 있다.</li>
+      </ul></div>
+      <div class="card accent2"><h3>핵심 방법과 개선 포인트</h3><ul class="tight">
+        <li>trajectory를 <code>[REASON]</code>과 <code>[ACT]</code> segment로 표시</li>
+        <li>segment-specific loss로 reasoning과 action을 다르게 학습</li>
+        <li>agent가 “생각”뿐 아니라 “무엇을 호출/선택할지”를 재현하게 함</li>
+      </ul></div>
+    </div>
+    <div class="card warn"><p><strong>적용 조건/한계:</strong> 원 논문은 tool-call ACT 중심이다. tool-free workflow에서는 ACT를 API 호출이 아니라 schema decision, merge decision, routing decision으로 재해석해야 한다.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>논문 직접 근거:</strong> 이 장은 논문 기반 방법론이다. 쉬운 말로는 “말로 생각하는 부분과 실제 버튼을 누르는 부분을 따로 채점한다”다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B가 긴 reasoning을 만들 수 있어도 serving output은 짧은 action으로 제한할 수 있다는 뒤의 output-length 슬라이드와 연결된다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 11 — Tool schema selection -->
+<section class="slide">
+  <span class="slide-tag t3">Part 3 · Tool</span>
+  <h2>Tool schema overhead ≠ tool selection <span class="badge paper">논문 기반 방법론</span></h2>
+  <p class="lede">하나는 prompt token을 줄이는 문제이고, 다른 하나는 action-space를 줄이는 문제다.</p>
+  <div class="body">
+    <table>
+      <thead><tr><th>방법</th><th>줄이는 것</th><th>핵심 아이디어</th><th>위험/한계</th></tr></thead>
+      <tbody>
+        <tr><td>Internalizing Tool Knowledge</td><td>tool schema token overhead</td><td>QLoRA로 tool description 없이 structured tool-use plan을 만들도록 학습</td><td>tool update 시 재학습/재검증 필요</td></tr>
+        <tr><td>Less is More</td><td>action-space + prompt token</td><td>현재 요청에 관련된 tool subset만 prompt에 제공</td><td>필요한 tool을 router가 누락하면 전체 task 실패 가능</td></tr>
+        <tr><td>AgentDistill / MCP reuse</td><td>반복 workflow 구성 비용</td><td>teacher가 만든 재사용 가능한 MCP box를 student가 재사용</td><td>training-free 장점은 있으나 도메인 전이 확인 필요</td></tr>
+      </tbody>
+    </table>
+    <div class="cd"><div class="cd-title">구분</div><div class="cd-row"><div class="cd-box b1">Schema token 절감<br><small>prompt 길이↓</small></div><div class="cd-arrow">≠</div><div class="cd-box b4">Action-space 절감<br><small>후보 tool 수↓</small></div></div><p class="cd-cap">이 그림이 보여주는 핵심: tool 설명을 줄이는 것과 tool 후보를 고르는 것은 실패 모드가 다르다.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>논문 직접 근거:</strong> 이 슬라이드는 논문 기반 방법론이다. Tool schema overhead는 입력 token 비용이고, tool selection은 후보 공간을 줄여 정확도와 latency를 함께 건드린다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B 호출을 줄이려면 tool router가 필요할 수 있지만, router recall이 낮으면 큰 모델보다 더 큰 실패를 만들 수 있다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 12 — Context compression -->
+<section class="slide">
+  <span class="slide-tag t3">Part 3 · Context</span>
+  <h2>Context compression — 모델을 줄여도 context가 길면 비용은 남는다 <span class="badge paper">논문 기반 방법론</span></h2>
+  <p class="lede">AgentDiet/ACON의 문제정의는 multi-step agent에서 action/observation/tool result가 누적되어 input token이 커지는 문제다.</p>
+  <div class="body">
+    <div class="grid-2">
+      <div class="card accent1"><h3>기존 접근의 한계</h3><ul class="tight">
+        <li>작은 student로 바꿔도 매 step 전체 history를 다시 넣으면 input cost가 남는다.</li>
+        <li>long context는 latency뿐 아니라 attention memory와 recall error를 키울 수 있다.</li>
+        <li>tool result가 많을수록 마지막 step의 입력이 가장 비싸진다.</li>
+      </ul></div>
+      <div class="card accent2"><h3>핵심 방법</h3><ul class="tight">
+        <li>useless context: task에 기여하지 않는 관찰 제거</li>
+        <li>redundant context: 반복 정보 병합/요약</li>
+        <li>expired context: 현재 decision에 더 이상 필요 없는 과거 state 삭제</li>
+      </ul></div>
+    </div>
+    <div class="cd"><div class="cd-title">context triage</div><div class="cd-row"><div class="cd-box b6">useless<br><small>삭제</small></div><div class="cd-box b3">redundant<br><small>병합</small></div><div class="cd-box b4">expired<br><small>만료</small></div><div class="cd-arrow">→</div><div class="cd-box b2">compact state</div></div><p class="cd-cap">이 그림이 보여주는 핵심: context compression은 모델 크기가 아니라 매 step 입력 비용을 줄인다.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>논문 직접 근거:</strong> 이 장은 논문 기반 방법론이다. AgentDiet와 ACON은 모델 자체를 줄이는 논문이 아니라 agent trajectory가 길어질 때의 context 비용을 다룬다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B를 student로 대체해도 누적 context가 길면 end-to-end 비용이 남는다는 점이 핵심이다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 13 — Serving/runtime -->
+<section class="slide">
+  <span class="slide-tag t5">Part 4 · Runtime</span>
+  <h2>vLLM · SGLang · CacheGen — 남은 235B 호출 실행 비용 절감 <span class="badge serving">serving/runtime</span></h2>
+  <p class="lede">모델 압축/KD가 아니라 fallback·teacher 호출이 남을 때의 runtime 최적화 축.</p>
+  <div class="body">
+    <table>
+      <thead><tr><th>방법</th><th>문제정의</th><th>핵심 방법</th><th>발표에서의 위치</th></tr></thead>
+      <tbody>
+        <tr><td>vLLM</td><td>KV cache fragmentation과 memory waste</td><td>PagedAttention 기반 KV cache memory management</td><td>큰 모델 호출 throughput/latency baseline</td></tr>
+        <tr><td>SGLang</td><td>repeated prefix와 structured LM program overhead</td><td>RadixAttention, prefix reuse, structured generation runtime</td><td>반복 prompt·schema workflow의 runtime 절감 가능성</td></tr>
+        <tr><td>CacheGen</td><td>long-context reuse 시 KV cache loading/transfer delay</td><td>KV cache compression/streaming 최적화</td><td>긴 shared context 반복 재사용 시 보조 카드</td></tr>
+      </tbody>
+    </table>
+    <div class="card warn"><p><strong>분류 주의:</strong> serving/runtime은 model compression이나 KD가 아님. 큰 모델 호출이 남는 조건에서 실행 효율을 다루는 시스템 패턴.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>시스템 패턴:</strong> 이 장은 Qwen3-235B를 없애는 방법이 아니라 남은 호출을 더 싸게 실행하는 runtime layer다.</li>
+    <li><strong>시스템 패턴:</strong> vLLM은 PagedAttention과 KV cache memory management로 serving throughput과 memory 효율을 개선하는 계열이다.</li>
+    <li><strong>시스템 패턴:</strong> SGLang은 structured LM program 실행, RadixAttention, prefix reuse가 핵심이므로 반복 prefix가 큰 workflow에서 검토 가능하다.</li>
+    <li><strong>시스템 패턴:</strong> CacheGen은 KV cache compression/streaming으로 context loading delay를 줄이는 문제를 다룬다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Profile Agent에 바로 적용된다는 결론은 아니며, teacher/fallback 호출이 남을 때 baseline으로 비교할 후보다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 14 — Decoding -->
+<section class="slide">
+  <span class="slide-tag t6">Part 4 · Decoding</span>
+  <h2>Decoding optimization — generation step 병목 완화 <span class="badge decoding">decoding optimization</span></h2>
+  <p class="lede">모델을 작게 만드는 방법이 아니라, autoregressive generation에서 필요한 순차 step을 줄이는 축.</p>
+  <div class="body">
+    <table>
+      <thead><tr><th>방법</th><th>무엇을 쓰는가</th><th>줄이는 것</th><th>조건/주의</th></tr></thead>
+      <tbody>
+        <tr><td>Speculative Decoding</td><td>draft model</td><td>target forward 체감</td><td>acceptance rate와 verifier 비용에 의존</td></tr>
+        <tr><td>Medusa</td><td>extra decoding heads</td><td>한 step에서 여러 후보 token 생성</td><td>별도 head 학습·모델 수정 권한 필요 가능</td></tr>
+        <tr><td>EAGLE</td><td>feature-level prediction</td><td>feature/speculator 기반 speculative latency</td><td>speculator 학습 또는 runtime 지원 필요</td></tr>
+        <tr><td>Lookahead</td><td>exact parallel decoding</td><td>일부 sequential dependency</td><td>효과는 workload/runtime 조건부</td></tr>
+        <tr><td>MTP</td><td>target model native multi-token prediction</td><td>native multi-token generation</td><td>native support 확인 필요. Qwen3-235B 적용 단정 금지</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>시스템 패턴:</strong> 이 장은 decoding optimization이다. weight memory나 teacher 의존도를 줄이지 않고 generation step 병목을 줄이는 방법이다.</li>
+    <li><strong>논문 직접 근거:</strong> Speculative Decoding은 draft model이 제안한 token을 target model이 검증하는 구조이므로 acceptance rate가 핵심 조건이다.</li>
+    <li><strong>논문 직접 근거:</strong> Medusa/EAGLE은 별도 decoding head 또는 speculator 학습이 필요할 수 있어, target model을 수정할 수 있는지 확인해야 한다.</li>
+    <li><strong>확인 필요:</strong> MTP는 target model의 native support가 중요하다. Qwen3-235B 환경에서 즉시 사용 가능하다고 말하지 않는다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 15 — Output length -->
+<section class="slide">
+  <span class="slide-tag t4">Part 4 · Generation</span>
+  <h2>Output length — latency를 먼저 흔드는 변수 <span class="badge system">시스템 패턴</span></h2>
+  <p class="lede">줄이는 대상은 생성 token 수와 종료 실패. EOS 관련 값은 generation stability 지표로만 사용.</p>
+  <div class="body">
+    <div class="grid-2">
+      <div class="card accent1"><h3>문제정의 / 적용 조건</h3><ul class="tight">
+        <li>출력 token 수 증가 → decoding 최적화 이전에 latency 증가</li>
+        <li>agent serving에서는 다음 step이 소비할 JSON/action만 필요할 수 있음</li>
+        <li>teacher reasoning은 학습에 쓰되, runtime 출력은 action 중심 제한 가능성</li>
+      </ul></div>
+      <div class="card accent2"><h3>생성 안정성 지표</h3><div class="pill-row">
+        <span class="pill blue">EOS_rate</span><span class="pill red">missing_EOS_rate</span><span class="pill yellow">cap_hit_rate</span><span class="pill green">output length distribution</span><span class="pill blue">repetition rate</span><span class="pill yellow">p95 generation latency</span>
+      </div></div>
+    </div>
+    <div class="card warn"><p><strong>주의:</strong> EOS_rate는 MoE-KD 구조 지표가 아니라 generation 종료·length 안정성 확인 지표. MoE/quantization과의 연결은 output distribution 변화 가능성에 대한 간접 점검으로만 둔다.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>시스템 패턴:</strong> 출력 길이가 길면 p95 generation latency가 커질 수 있으므로 decoding trick보다 먼저 length distribution을 본다.</li>
+    <li><strong>논문 직접 근거:</strong> EOS 관련 연구는 generation 종료와 output length 안정성의 직접 근거로만 사용한다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> MoE quantization 논문은 router/expert selection shift가 output distribution을 흔들 수 있다는 간접 근거로만 연결한다.</li>
+    <li><strong>확인 필요:</strong> EOS_rate, missing_EOS_rate, cap_hit_rate는 MoE-KD의 핵심 구조 지표가 아니라 generation stability 확인 지표다.</li>
+    <li><strong>확인 필요:</strong> Qwen3 thinking/no-thinking 사용 여부와 무관하게 serving output을 짧게 제한할 수 있는지는 task별 schema와 quality metric으로 검증해야 한다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 16 — Cascade -->
+<section class="slide">
+  <span class="slide-tag t4">Part 5 · System</span>
+  <h2>Cascade / fallback — 235B 호출 비율 낮추기 <span class="badge system">시스템 패턴</span></h2>
+  <p class="lede">큰 모델을 완전히 제거하는 것이 아니라, 쉬운 요청은 작은 모델이 처리하고 어려운 요청만 teacher/fallback으로 보낸다.</p>
+  <div class="body">
+    <div class="cd"><div class="cd-title">system-level pattern</div><div class="cd-row"><div class="cd-box b2">small student</div><div class="cd-arrow">accept?</div><div class="cd-box b3">uncertain case</div><div class="cd-arrow">→</div><div class="cd-box b1">Qwen3-235B fallback</div></div><p class="cd-cap">이 그림이 보여주는 핵심: cascade는 235B 호출을 0으로 만들기보다 호출 비율을 낮춘다.</p></div>
+    <table><thead><tr><th>지표</th><th>의미</th><th>왜 필요한가</th></tr></thead><tbody>
+      <tr><td>wrong accept rate</td><td>작은 모델의 틀린 답을 받아들인 비율</td><td>cost 절감이 quality 손상으로 바뀌는 지점</td></tr>
+      <tr><td>fallback rate</td><td>큰 모델로 넘긴 비율</td><td>실제 235B 의존도 감소 폭</td></tr>
+      <tr><td>cost per successful task</td><td>성공 task 1개당 총 비용</td><td>latency·quality·fallback을 함께 보는 system metric</td></tr>
+    </tbody></table>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>시스템 패턴:</strong> 이 장은 시스템 패턴이다. 구체적인 fallback 정책은 제안하지 않고 지표와 개념만 둔다.</li>
+    <li><strong>시스템 패턴:</strong> Qwen3-235B가 남는 구조에서는 “언제 부를지”가 압축만큼 중요하지만, wrong accept rate를 같이 보지 않으면 위험하다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 17 — MoE KD table -->
+<section class="slide">
+  <span class="slide-tag t2">Part 2 · MoE KD</span>
+  <h2>MoE teacher distillation — output-only와 router/expert-aware 구분 <span class="badge paper">논문 기반 방법론</span></h2>
+  <p class="lede">Qwen3-235B-A22B는 MoE teacher. 가능한 KD 수준은 output/logit/router 접근 권한에 따라 달라짐.</p>
+  <div class="body">
+    <table>
+      <thead><tr><th>논문</th><th>방향</th><th>핵심 아이디어</th><th>발표에서 쓸 포인트</th></tr></thead>
+      <tbody>
+        <tr><td>Every Expert Matters</td><td>MoE teacher → dense student</td><td>non-activated expert도 지식이 있으므로 KA/SAR로 all expert knowledge 활용</td><td>output-only KD는 expert 지식 일부를 놓칠 수 있음</td></tr>
+        <tr><td>B-Distill</td><td>MoE teacher → MoE student</td><td>teacher expertise를 student experts에 균형 전달, routing collapse 완화</td><td>MoE-to-MoE KD에서는 expert coverage와 router balance가 핵심</td></tr>
+        <tr><td>Sparse MoE Students</td><td>dense/MoE teacher → sparse MoE student</td><td>student 자체를 sparse MoE로 구성해 KD 수행</td><td>student 구조는 dense만이 아니라 sparse MoE도 검토 가능</td></tr>
+        <tr><td>MoEKD for Code Models</td><td>multi-expert KD</td><td>expert와 router를 나눠 학습, aggregated expert knowledge를 compact model에 distill</td><td>multi-expert aggregation이 robust KD에 유리할 가능성</td></tr>
+        <tr><td>Qwen3 Technical Report</td><td>Qwen family distillation</td><td>off-policy distillation + on-policy distillation로 lightweight models 학습</td><td>response KD 후 on-policy/logit KD 흐름 참고 가능</td></tr>
+      </tbody>
+    </table>
+    <p class="small">내부 router/expert 접근 가능성을 가정하지 않는다. output-only면 black-box KD, logits가 있으면 token/logit KD, router/expert가 있을 때만 MoE-aware KD.</p>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>논문 직접 근거:</strong> Every Expert Matters는 non-activated expert 지식까지 고려해야 한다는 문제의식을 제공한다.</li>
+    <li><strong>논문 직접 근거:</strong> B-Distill은 MoE-to-MoE KD에서 expert coverage와 routing collapse가 문제가 될 수 있음을 보여준다.</li>
+    <li><strong>논문 직접 근거:</strong> Sparse MoE Students는 student를 dense로만 두지 않고 sparse MoE로 구성하는 방향도 가능함을 보여준다.</li>
+    <li><strong>논문 직접 근거:</strong> MoEKD for Code Models는 expert/router를 분리하고 aggregated expert knowledge를 compact model에 전달하는 multi-expert KD 관점을 제공한다.</li>
+    <li><strong>공식 기술 보고서:</strong> Qwen3 Technical Report는 Qwen family 내부의 off-policy/on-policy distillation 흐름을 참고할 수 있는 공식 기술 보고서다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B-A22B가 MoE teacher라는 사실은 중요하지만, 우리 환경에서 router/expert 내부 접근이 가능하다고 가정하지 않는다.</li>
+    <li><strong>확인 필요:</strong> output-only KD, logit KD, router/expert-aware KD는 접근 권한별 선택지다. 이 슬라이드는 Qwen3 teacher 관점의 보강 자료이며 발표 전체를 MoE 구조 설명으로 확장하지 않는다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 18 — Teacher access -->
+<section class="slide">
+  <span class="slide-tag t2">Part 2 · KD 권한</span>
+  <h2>Teacher 접근 권한별 KD 선택지</h2>
+  <p class="lede">방법명보다 먼저 확인할 것: output, logits, router/expert 중 무엇을 볼 수 있는가.</p>
+  <div class="body">
+    <div class="grid-3">
+      <div class="card accent1"><h3>Output only</h3><ul class="tight"><li>Response KD</li><li>Preference pair 생성</li><li>trajectory text imitation</li><li><strong>한계:</strong> confidence·expert coverage는 보이지 않음</li></ul></div>
+      <div class="card accent3"><h3>Logits available</h3><ul class="tight"><li>Token/logit KD</li><li>On-policy KL</li><li>EOS/length distribution 관찰</li><li><strong>한계:</strong> MoE 내부 routing은 여전히 불투명</li></ul></div>
+      <div class="card warn"><h3>Router/expert available</h3><ul class="tight"><li>MoE-aware KD</li><li>expert coverage/balance 학습</li><li>non-activated expert 활용</li><li><strong>조건:</strong> 내부 접근 가능할 때만</li></ul></div>
+    </div>
+    <div class="card note"><p><strong>Qwen3-235B 연결:</strong> MoE teacher라는 사실은 중요하지만 내부 expert 접근을 전제로 삼지 않음. 권한이 낮으면 output/logit 중심으로 제한.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>논문 직접 근거:</strong> KD 방법론은 teacher signal의 종류에 따라 필요한 데이터와 loss가 달라진다.</li>
+    <li><strong>공식 기술 보고서:</strong> Qwen3 Technical Report의 off-policy/on-policy 흐름은 output 기반 SFT와 student rollout 기반 보정을 구분해 볼 수 있게 한다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> output-only라면 선생님 답안만 보고 배우는 셈이고, logit KD는 token 분포 접근이 가능한 경우에만 검토 가능하다.</li>
+    <li><strong>확인 필요:</strong> router/expert 접근 가능성은 별도 확인 대상이다. 가능하다고 말하지 않고, 가능한 경우에만 MoE-aware KD 후보로 둔다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 19 — Domain Bridge 1 -->
+<section class="slide">
+  <span class="slide-tag t7">Part 6 · Domain Bridge</span>
+  <h2>Domain Bridge ① — User profile / recommender 사례 <span class="badge bridge">도메인 참고 사례</span></h2>
+  <p class="lede">PURE, RDRec, SLIM, PinnerSage, PinFM, LEADRE는 Profile Agent 설계안이 아니라 유사 도메인 참고 사례다.</p>
+  <div class="body">
+    <table>
+      <thead><tr><th>사례</th><th>왜 관련 있는가</th><th>직접 외삽하면 안 되는 이유</th></tr></thead>
+      <tbody>
+        <tr><td>PURE / RDRec</td><td>profile·preference representation을 압축/재사용하는 관점</td><td>추천 offline metric과 agent workflow success는 다름</td></tr>
+        <tr><td>SLIM</td><td>간결한 user/item signal이 강한 baseline이 될 수 있다는 교훈</td><td>linear recommender 구조를 LLM agent decision에 그대로 옮길 수 없음</td></tr>
+        <tr><td>PinnerSage / PinFM</td><td>대규모 산업 recommender에서 embedding·multi-stage ranking의 비용 분리</td><td>산업 ranking stack과 LLM tool/action workflow는 목적 함수가 다름</td></tr>
+        <tr><td>LEADRE</td><td>distillation/representation 효율화가 domain model에서 중요</td><td>agent의 schema validity와 action sequence를 직접 보장하지 않음</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>우리 workflow로의 해석:</strong> 이 장은 도메인 참고 사례다. 추천/프로필 분야는 압축과 representation reuse의 힌트를 주지만, Profile Agent 설계안으로 읽으면 안 된다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B 경량화와 연결되는 부분은 “domain-specific signal을 어떻게 작게 보존할 것인가”다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 20 — Domain Bridge 2 -->
+<section class="slide">
+  <span class="slide-tag t7">Part 6 · Domain Bridge</span>
+  <h2>Domain Bridge ② — Workflow decomposition 사례 <span class="badge bridge">도메인 참고 사례</span></h2>
+  <p class="lede">Decomposed Prompting, PromptChainer, R³ Prompting은 workflow를 나누는 사고법을 제공하지만 그대로 설계로 확정하지 않는다.</p>
+  <div class="body">
+    <div class="grid-3">
+      <div class="card accent1"><h3>Decomposed Prompting</h3><p><strong>관련성:</strong> 복잡한 task를 sub-task로 나누면 작은 모델/큰 모델 분담 논의가 가능하다.</p><p><strong>주의:</strong> decomposition 자체가 cost 절감을 보장하지 않는다.</p></div>
+      <div class="card accent3"><h3>PromptChainer</h3><p><strong>관련성:</strong> chain의 각 step input/output contract를 명시하는 관점이 agent metric과 닿는다.</p><p><strong>주의:</strong> step이 늘면 call count와 context 누적이 증가할 수 있다.</p></div>
+      <div class="card accent4"><h3>R³ Prompting</h3><p><strong>관련성:</strong> retrieve/reason/revise류 반복 구조는 fallback·verification과 연결된다.</p><p><strong>주의:</strong> 반복이 늘면 latency와 error propagation도 함께 늘 수 있다.</p></div>
+    </div>
+    <div class="card note"><p><strong>핵심:</strong> Domain Bridge는 “유사한 문제를 어떻게 분해했는가”를 보는 참고 자료이며, Profile Agent의 확정 workflow가 아니다.</p></div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>도메인 참고 사례:</strong> Decomposed Prompting, PromptChainer, R³ Prompting은 workflow decomposition을 생각하는 참고 사례다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B 관점에서는 어떤 step을 student에게 맡길 수 있는지 생각하게 해주지만, 우선순위나 정책을 제안하지 않는다.</li>
+    <li><strong>확인 필요:</strong> step 분해가 call count를 늘릴 수 있으므로 cost per successful task로 별도 검증해야 한다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 21 — Metric checklist -->
+<section class="slide">
+  <span class="slide-tag t7">Part 7 · 평가</span>
+  <h2>경량화 평가: quality와 cost 분리</h2>
+  <p class="lede">압축 성공은 latency 하나로 판단하기 어렵다. 비용 절감 축마다 실패 모드가 다르다.</p>
+  <div class="body">
+    <table>
+      <thead><tr><th>축</th><th>대표 지표</th><th>놓치기 쉬운 실패</th></tr></thead>
+      <tbody>
+        <tr><td>Model quality</td><td>PPL, benchmark score, task success</td><td>generic score는 agent schema failure를 가릴 수 있음</td></tr>
+        <tr><td>Agent correctness</td><td>schema validity, action accuracy, trajectory consistency</td><td>final answer만 맞고 중간 sequence가 깨짐</td></tr>
+        <tr><td>Generation stability</td><td>EOS_rate, missing_EOS_rate, cap_hit_rate, repetition rate</td><td>긴 출력·종료 실패로 p95 latency 상승</td></tr>
+        <tr><td>System cost</td><td>fallback rate, cost per successful task, p95 end-to-end latency</td><td>작은 모델 wrong accept로 quality 손상</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>시스템 패턴:</strong> 이 장은 평가 정리다. 논문별 metric과 agent 운영 metric이 다르다는 점을 강조한다.</li>
+    <li><strong>논문 직접 근거:</strong> GPTQ/AWQ/QLoRA/KD 논문은 각자의 원문 조건과 benchmark에서 결과를 보고한다. Profile Agent 성능으로 직접 외삽하지 않는다.</li>
+    <li><strong>확인 필요:</strong> EOS 관련 지표는 generation stability로만 다룬다. MoE quantization 논문이 EOS_rate를 직접 다룬다고 말하지 않는다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 22 — Method comparison -->
+<section class="slide">
+  <span class="slide-tag t7">Part 7 · 비교</span>
+  <h2>전체 방법론 비교표</h2>
+  <p class="lede">한 표로 보면 각 방법의 작용 지점과 남는 리스크가 분명해진다.</p>
+  <div class="body">
+    <table>
+      <thead><tr><th>방법</th><th>분류</th><th>주로 줄이는 것</th><th>남는 리스크</th></tr></thead>
+      <tbody>
+        <tr><td>GPTQ/AWQ</td><td>논문 기반 방법론</td><td>235B weight memory, serving latency</td><td>PPL 유지 ≠ schema/action 유지</td></tr>
+        <tr><td>QLoRA</td><td>논문 기반 방법론</td><td>full fine-tuning memory</td><td>inference call count는 그대로</td></tr>
+        <tr><td>Response/Logit/On-policy/Preference KD</td><td>논문 기반 방법론</td><td>teacher serving 의존도</td><td>중간 action sequence 보장 부족</td></tr>
+        <tr><td>Agent trajectory / Structured AD</td><td>논문 기반 방법론</td><td>agent path imitation gap</td><td>tool-free workflow 재해석 필요</td></tr>
+        <tr><td>Tool/Context compression</td><td>논문 기반 방법론</td><td>prompt token, action space, context length</td><td>router miss, 정보 삭제 오류</td></tr>
+        <tr><td>vLLM/SGLang/CacheGen</td><td>serving/runtime</td><td>남은 235B 호출 실행 비용</td><td>모델 의존도 자체는 남음</td></tr>
+        <tr><td>Decoding/Cascade</td><td>decoding optimization / 시스템 패턴</td><td>generation step 또는 큰 모델 호출 비율</td><td>조건부 지원, wrong accept</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>우리 workflow로의 해석:</strong> 이 장은 전체 정리다. 같은 “절감”이라도 어떤 리스크가 남는지까지 같이 보자는 메시지다.</li>
+    <li><strong>우리 workflow로의 해석:</strong> Qwen3-235B를 완전히 없애는 방법과 남겨두고 최적화하는 방법을 계속 구분한다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 23 — Profile Agent applicability -->
+<section class="slide">
+  <span class="slide-tag t7">Part 7 · 적용 가능성</span>
+  <h2>Profile Agent 연결점 — 확정 설계 아님</h2>
+  <p class="lede">여기서는 “가능성”만 요약한다. 구체적인 우선순위나 fallback 정책은 제안하지 않는다.</p>
+  <div class="body">
+    <div class="grid-2">
+      <div class="card accent1"><h3>연결 가능성</h3><ul class="tight">
+        <li>반복 schema·instruction이 있다면 output length 제한과 schema validity 지표가 중요</li>
+        <li>teacher trajectory가 있다면 final answer KD보다 decision/merge/action trace 보존 여부가 쟁점</li>
+        <li>반복 prefix가 크면 SGLang류 prefix reuse는 runtime 가능성으로 분류</li>
+        <li>긴 profile context가 누적되면 AgentDiet/ACON류 context triage가 연결됨</li>
+      </ul></div>
+      <div class="card warn"><h3>확정하지 않는 것</h3><ul class="tight">
+        <li>어떤 step에 어떤 모델을 둘지</li>
+        <li>어떤 KD recipe를 먼저 실험할지</li>
+        <li>fallback threshold나 accept policy</li>
+        <li>Domain Bridge 사례를 Profile Agent 설계로 직접 외삽하는 것</li>
+      </ul></div>
+    </div>
+    <p class="small">Profile Agent가 tool-free workflow라면 tool-call ACT는 schema decision / merge decision / routing decision으로 재해석해야 한다.</p>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>시스템 패턴:</strong> 이 장은 시스템 패턴과 적용 가능성 요약이다. Profile Agent를 설계하는 장이 아니라, 앞의 taxonomy가 어디서 닿는지 짧게 연결한다.</li>
+    <li><strong>시스템 패턴:</strong> Qwen3-235B 의존도는 model, context, call ratio, runtime 중 어느 축을 줄이는지에 따라 다른 계획이 필요하다.</li>
+  </ul></aside>
+</section>
+
+<!-- Slide 24 — Takeaways -->
+<section class="slide">
+  <span class="slide-tag t7">Part 7 · 정리</span>
+  <h2>Takeaways</h2>
+  <p class="lede">기억해야 할 것은 특정 방법명이 아니라 분류와 평가 기준이다.</p>
+  <div class="body">
+    <div class="grid-2">
+      <div class="card accent1"><div class="tagline">핵심 요약</div><ul class="tight">
+        <li>Quantization은 235B weight memory와 serving latency를 치지만 agent metric은 별도다.</li>
+        <li>QLoRA는 작은 base/student adaptation 비용을 줄이지 inference call count를 줄이지 않는다.</li>
+        <li>Qwen3-235B-A22B는 MoE teacher이므로 output-only KD와 MoE-aware KD를 구분해야 한다.</li>
+        <li>Agent KD는 final answer보다 reason→act→observe 흐름을 학습 대상으로 올린다.</li>
+      </ul></div>
+      <div class="card accent3"><div class="tagline">운영 관점</div><ul class="tight">
+        <li>Tool schema token overhead와 action-space reduction은 실패 모드가 다르다.</li>
+        <li>모델을 줄여도 context가 길면 비용은 남는다.</li>
+        <li>Serving/runtime과 decoding은 모델 압축이 아니라 남은 호출의 실행 최적화다.</li>
+        <li>Cascade는 큰 모델 제거가 아니라 호출 비율 감소 패턴이며 wrong accept를 함께 봐야 한다.</li>
+      </ul></div>
+    </div>
+  </div>
+  <aside class="speaker-notes"><h4>Speaker notes</h4><ul>
+    <li><strong>우리 workflow로의 해석:</strong> 이 장은 최종 정리다. 발표를 한 문장으로 줄이면 “방법을 고르기 전에 어떤 비용 축과 어떤 teacher 접근 권한이 있는지 확인하자”다.</li>
+    <li><strong>논문 직접 근거:</strong> 논문 기반 방법론, 도메인 참고 사례, 시스템 패턴, serving/runtime, decoding optimization을 섞지 않는 것이 가장 중요한 방어선이다.</li>
+  </ul></aside>
+</section>
+
+</div> <!-- /stage -->
+
+<!-- Chrome — page nav + counter -->
+<div class="chrome">
+  <span class="crumb" id="crumb">Qwen3-235B 의존도 경량화</span>
+  <div class="nav">
+    <button id="prev" title="이전 (←, PageUp)">◀ 이전</button>
+    <span class="pageno"><span id="cur">1</span> / <span id="tot">24</span></span>
+    <button id="next" title="다음 (→, PageDown, Space)">다음 ▶</button>
+    <button id="notes" title="speaker notes 토글 (N)">notes</button>
+    <span class="notes-status" id="notes-status">Notes: OFF</span>
+    <button id="print" title="인쇄 / PDF (P)">print</button>
+  </div>
+</div>
+
+</div> <!-- /deck -->
+
+<script>
+(function(){
+  const slides = Array.from(document.querySelectorAll('section.slide'));
+  const tot = slides.length;
+  document.getElementById('tot').textContent = tot;
+
+  // Allow ?slide=N or #N to deep-link
+  function readInitialIndex() {
+    const params = new URLSearchParams(location.search);
+    const fromQuery = parseInt(params.get('slide') || '', 10);
+    if (!isNaN(fromQuery) && fromQuery >= 1 && fromQuery <= tot) return fromQuery - 1;
+    const fromHash = parseInt((location.hash || '').replace('#',''), 10);
+    if (!isNaN(fromHash) && fromHash >= 1 && fromHash <= tot) return fromHash - 1;
+    return 0;
+  }
+
+  let idx = readInitialIndex();
+  const notesStatus = document.getElementById('notes-status');
+
+  function updateNotesStatus() {
+    const on = document.body.classList.contains('notes-visible');
+    notesStatus.textContent = on ? 'Notes: ON' : 'Notes: OFF';
+    document.getElementById('notes').setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
+  function toggleNotes() {
+    document.body.classList.toggle('notes-visible');
+    updateNotesStatus();
+  }
+
+  function show(i) {
+    idx = Math.max(0, Math.min(tot - 1, i));
+    slides.forEach((s, n) => s.classList.toggle('active', n === idx));
+    document.getElementById('cur').textContent = idx + 1;
+    const url = new URL(location.href);
+    url.hash = String(idx + 1);
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
+    updateNotesStatus();
+  }
+
+  document.getElementById('prev').addEventListener('click', () => show(idx - 1));
+  document.getElementById('next').addEventListener('click', () => show(idx + 1));
+  document.getElementById('print').addEventListener('click', () => window.print());
+  document.getElementById('notes').addEventListener('click', toggleNotes);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'PageDown':
+      case ' ':
+        e.preventDefault(); show(idx + 1); break;
+      case 'ArrowLeft':
+      case 'PageUp':
+        e.preventDefault(); show(idx - 1); break;
+      case 'Home': e.preventDefault(); show(0); break;
+      case 'End':  e.preventDefault(); show(tot - 1); break;
+      case 'n': case 'N':
+        toggleNotes(); break;
+      case 'p': case 'P':
+        window.print(); break;
+    }
+  });
+
+  // If user lands via ?notes=1 turn notes on
+  if (new URLSearchParams(location.search).get('notes') === '1') {
+    document.body.classList.add('notes-visible');
+  }
+  updateNotesStatus();
+
+  show(idx);
+})();
+</script>
+</body>
+</html>
