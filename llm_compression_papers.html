@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent LLM 경량화 논문 교육자료</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #1a1a2e; line-height: 1.75; font-size: 15px; }
+  header { background: #1a1a2e; color: #fff; padding: 40px 60px 30px; border-bottom: 4px solid #4a90d9; }
+  header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+  header p { color: #a0b0c8; font-size: 0.95rem; }
+  nav { background: #fff; border-bottom: 1px solid #dde3ed; padding: 20px 60px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  nav h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 10px; }
+  nav ol { display: flex; flex-wrap: wrap; gap: 6px 16px; padding-left: 20px; }
+  nav ol li { font-size: 0.82rem; }
+  nav ol li a { color: #4a90d9; text-decoration: none; }
+  nav ol li a:hover { text-decoration: underline; }
+  main { max-width: 1100px; margin: 40px auto; padding: 0 40px 80px; }
+  .category-label { display: inline-block; background: #4a90d9; color: #fff; font-size: 0.72rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 3px 10px; border-radius: 3px; margin-bottom: 14px; }
+  section.paper { background: #fff; border: 1px solid #dde3ed; border-radius: 10px; padding: 40px 44px; margin-bottom: 48px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  section.paper h2 { font-size: 1.35rem; font-weight: 700; color: #1a1a2e; margin-bottom: 6px; }
+  .paper-meta { font-size: 0.82rem; color: #888; margin-bottom: 24px; border-bottom: 1px solid #eee; padding-bottom: 14px; }
+  .paper-meta a { color: #4a90d9; text-decoration: none; }
+  .summary, .key-ideas { margin-bottom: 28px; }
+  .summary h3, .key-ideas h3 { font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #4a90d9; margin-bottom: 12px; }
+  .summary p, .key-ideas p { margin-bottom: 12px; color: #333; }
+  .key-ideas ul { padding-left: 20px; }
+  .key-ideas ul li { margin-bottom: 8px; color: #333; }
+  .key-ideas ul li strong { color: #1a1a2e; }
+  .block { background: #f8fafc; border-left: 3px solid #4a90d9; padding: 14px 18px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 0.88rem; }
+  .block .label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #4a90d9; margin-bottom: 6px; }
+  .warn-block { background: #fff8e1; border-left: 3px solid #f5a623; padding: 14px 18px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 0.88rem; }
+  .warn-block .label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #f5a623; margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.85rem; }
+  th { background: #f0f4f8; font-weight: 700; padding: 8px 12px; text-align: left; border: 1px solid #dde3ed; color: #444; }
+  td { padding: 8px 12px; border: 1px solid #dde3ed; color: #333; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  .figure { margin-top: 24px; border-top: 1px solid #eee; padding-top: 20px; }
+  .figure h3 { font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #4a90d9; margin-bottom: 12px; }
+  .figure img { width: 100%; border-radius: 6px; border: 1px solid #dde3ed; display: block; background: #f8fafc; }
+  .figure-placeholder { background: #f0f4f8; border: 2px dashed #c5d0de; border-radius: 8px; padding: 40px; text-align: center; color: #888; font-size: 0.85rem; }
+  .figure-placeholder span { display: block; font-size: 2rem; margin-bottom: 8px; }
+  .figure p { font-size: 0.85rem; color: #666; margin-top: 10px; font-style: italic; }
+  .tag { display: inline-block; background: #eef2ff; color: #4a90d9; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; margin: 2px 2px 2px 0; font-weight: 600; }
+  .tag.red { background: #fff0f0; color: #d9534f; }
+  .tag.green { background: #f0fff4; color: #28a745; }
+  .tag.orange { background: #fff8e1; color: #f5a623; }
+  code { background: #f4f6f9; border: 1px solid #dde3ed; border-radius: 3px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 0.85em; color: #c0392b; }
+  .divider { border: none; border-top: 2px solid #eef0f4; margin: 48px 0; }
+  .section-group-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #aaa; margin-bottom: 20px; margin-top: 40px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+  /* ── Overview page ── */
+  #overview { background:#fff; border:1px solid #dde3ed; border-radius:10px; padding:44px; margin-bottom:48px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+  #overview h2 { font-size:1.5rem; font-weight:700; margin-bottom:6px; color:#1a1a2e; }
+  #overview .subtitle { color:#888; font-size:0.9rem; margin-bottom:32px; }
+  .insight-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:24px 0; }
+  .insight-card { background:#f8fafc; border-radius:8px; padding:20px; border-left:4px solid #4a90d9; }
+  .insight-card.red  { border-color:#e74c3c; }
+  .insight-card.green{ border-color:#27ae60; }
+  .insight-card.orange{border-color:#f39c12; }
+  .insight-card.purple{border-color:#8e44ad; }
+  .insight-card h4 { font-size:0.82rem; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:8px; }
+  .insight-card.red h4   { color:#e74c3c; }
+  .insight-card.green h4 { color:#27ae60; }
+  .insight-card.orange h4{ color:#f39c12; }
+  .insight-card.purple h4{ color:#8e44ad; }
+  .insight-card p { font-size:0.88rem; color:#444; line-height:1.6; margin:0; }
+  .insight-card .cite { font-size:0.75rem; color:#888; margin-top:6px; font-style:italic; }
+  /* Phase diagram */
+  .phase-map { margin:32px 0 8px; }
+  .phase-row { display:flex; align-items:flex-start; margin-bottom:4px; }
+  .phase-arrow { display:flex; flex-direction:column; align-items:center; width:40px; flex-shrink:0; padding-top:18px; }
+  .phase-arrow .arr { width:2px; height:24px; background:#c5d0de; }
+  .phase-arrow .arrowhead { width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:8px solid #c5d0de; }
+  .phase-block { flex:1; border-radius:8px; padding:12px 16px; margin-bottom:0; }
+  .phase-block .phase-title { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+  .phase-block .papers-row { display:flex; flex-wrap:wrap; gap:5px; }
+  .paper-chip { display:inline-flex; align-items:center; background:#fff; border:1px solid; border-radius:14px; padding:3px 10px; font-size:0.72rem; font-weight:600; text-decoration:none; white-space:nowrap; transition:opacity .15s; }
+  .paper-chip:hover { opacity:.75; }
+  .ph1 { background:#eef4ff; } .ph1 .phase-title { color:#2563eb; } .ph1 .paper-chip { border-color:#93c5fd; color:#1d4ed8; }
+  .ph2 { background:#f0fdf4; } .ph2 .phase-title { color:#16a34a; } .ph2 .paper-chip { border-color:#86efac; color:#15803d; }
+  .ph3 { background:#fef2f2; border:2px solid #fca5a5; } .ph3 .phase-title { color:#dc2626; } .ph3 .paper-chip { border-color:#fca5a5; color:#dc2626; background:#fff5f5; }
+  .ph4 { background:#fffbeb; } .ph4 .phase-title { color:#d97706; } .ph4 .paper-chip { border-color:#fcd34d; color:#b45309; }
+  .ph5 { background:#f5f3ff; } .ph5 .phase-title { color:#7c3aed; } .ph5 .paper-chip { border-color:#c4b5fd; color:#6d28d9; }
+  .ph6 { background:#fdf4ff; } .ph6 .phase-title { color:#9333ea; } .ph6 .paper-chip { border-color:#e9d5ff; color:#7e22ce; }
+  .ph7 { background:#ecfeff; } .ph7 .phase-title { color:#0891b2; } .ph7 .paper-chip { border-color:#a5f3fc; color:#0e7490; }
+  .ph8 { background:#fff7ed; } .ph8 .phase-title { color:#ea580c; } .ph8 .paper-chip { border-color:#fdba74; color:#c2410c; }
+  .ph9 { background:#f8fafc; } .ph9 .phase-title { color:#475569; } .ph9 .paper-chip { border-color:#cbd5e1; color:#334155; }
+  .ph10{ background:#e0f2fe; } .ph10 .phase-title{ color:#0369a1; } .ph10 .paper-chip { border-color:#7dd3fc; color:#075985; }
+  .diff-table { width:100%; border-collapse:collapse; font-size:0.84rem; margin:20px 0; }
+  .diff-table th { padding:10px 14px; text-align:left; font-weight:700; }
+  .diff-table td { padding:9px 14px; border-top:1px solid #eee; vertical-align:top; }
+  .diff-table tr:nth-child(even) td { background:#fafbfc; }
+  .diff-table .col-general { background:#f8fafc; color:#64748b; }
+  .diff-table .col-agent   { background:#fff7ed; color:#92400e; }
+  .th-general { background:#e2e8f0; color:#475569; }
+  .th-agent   { background:#fed7aa; color:#92400e; }
+  .th-dim     { background:#f0f4f8; color:#1a1a2e; }
+  .phase-gap-label { font-size:0.7rem; color:#dc2626; font-weight:700; margin-left:6px; text-transform:uppercase; letter-spacing:0.5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Agent LLM 경량화 논문 교육자료</h1>
+  <p>Agent KD · Preference KD · Quantization · Serving 최적화 — 15편 논문 정리</p>
+</header>
+
+<main>
+
+<!-- ══════════════════════════════════════════════════════════
+     OVERVIEW PAGE
+══════════════════════════════════════════════════════════ -->
+<section id="overview">
+  <h2>Agent LLM 경량화 — 25편 논문 개관</h2>
+  <p class="subtitle">발전 흐름 · 핵심 인사이트 · 논문 간 관계 지도</p>
+
+  <!-- ── 핵심 인사이트 ── -->
+  <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px;color:#1a1a2e;border-bottom:2px solid #4a90d9;padding-bottom:8px">
+    왜 Agent 경량화는 일반 LLM 경량화와 다른가
+  </h3>
+
+  <table class="diff-table">
+    <thead>
+      <tr>
+        <th class="th-dim" style="width:22%">비교 차원</th>
+        <th class="th-general" style="width:39%">일반 LLM 경량화</th>
+        <th class="th-agent" style="width:39%">Agent LLM 경량화</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>평가 기준</strong></td>
+        <td class="col-general">PPL, MMLU, QA accuracy, generation quality</td>
+        <td class="col-agent">tool-call accuracy, schema validity rate, task success rate, multi-turn robustness <br><span style="font-size:0.75rem;color:#888">근거: Can Compressed LLMs Truly Act? (ACBench)</span></td>
+      </tr>
+      <tr>
+        <td><strong>압축 영향의 비대칭성</strong></td>
+        <td class="col-general">PPL이 유지되면 대부분의 downstream task가 함께 유지됨</td>
+        <td class="col-agent">4-bit quantization이 workflow/tool-use는 1~3%만 하락해도 real-world application은 10~15% 하락. KD는 tool-use를 70% → 43.6%로 붕괴시킴 <br><span style="font-size:0.75rem;color:#888">근거: ACBench (2025)</span></td>
+      </tr>
+      <tr>
+        <td><strong>KD의 대상</strong></td>
+        <td class="col-general">teacher의 output token distribution (soft label) 또는 final answer</td>
+        <td class="col-agent">reason → tool call → observe 전체 trajectory. [REASON] span과 [ACT] span을 분리해 각각 supervision 필요 <br><span style="font-size:0.75rem;color:#888">근거: Distilling LLM Agent (2025), Structured Agent Distillation (2025)</span></td>
+      </tr>
+      <tr>
+        <td><strong>비용 구조</strong></td>
+        <td class="col-general">모델 파라미터 수 · weight precision · KV cache가 핵심</td>
+        <td class="col-agent">모델 크기 외에 trajectory 누적 context 길이가 추가 비용 원천. 10-step 에이전트에서 마지막 step input은 첫 step보다 훨씬 길다 <br><span style="font-size:0.75rem;color:#888">근거: AgentDiet (FSE 2026), ACON (2025)</span></td>
+      </tr>
+      <tr>
+        <td><strong>학습 데이터 설계</strong></td>
+        <td class="col-general">input–output pair + 일반 instruction data로 충분</td>
+        <td class="col-agent">retrieval / instruction following / reasoning / understanding 능력은 학습 속도가 달라 한 corpus에 섞으면 빠른 것이 먼저 학습되어 균형이 깨질 수 있음. negative sample 필수 <br><span style="font-size:0.75rem;color:#888">근거: Agent-FLAN (2024) — abstract는 포괄적으로 서술, 능력 목록·과적합 세부 표현은 본문 §3 참조</span></td>
+      </tr>
+      <tr>
+        <td><strong>Format adherence</strong></td>
+        <td class="col-general">약간 틀린 출력도 사용자가 맥락 이해 가능</td>
+        <td class="col-agent">잘못된 JSON key 하나, argument 누락 하나가 전체 workflow를 파싱 실패로 만듦. SLM은 format adherence에 "struggle significantly" <br><span style="font-size:0.75rem;color:#888">근거: Small Models Big Tasks (2025), Can Compressed LLMs Truly Act?</span></td>
+      </tr>
+      <tr>
+        <td><strong>Action space</strong></td>
+        <td class="col-general">어휘(vocabulary) 크기 외에 별도 제약 없음</td>
+        <td class="col-agent">tool catalog 전체를 prompt에 넣으면 소형 모델 성능 저하. 현재 요청에 관련된 tool만 제공하면 execution time 최대 70% 감소 <br><span style="font-size:0.75rem;color:#888">근거: Less is More (DATE 2025), Internalizing Tool Knowledge (2026)</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── 4가지 핵심 인사이트 카드 ── -->
+  <div class="insight-grid" style="margin-top:28px">
+    <div class="insight-card red">
+      <h4>⚠ 경고: reasoning KD ≠ agent KD</h4>
+      <p>DeepSeek-R1을 teacher로 한 KD 모델은 수학 추론이 개선됐지만, agent tool-use 정확도는 70% → 43.6%로 급락했다. reasoning 능력과 agentic 능력은 별개이며, reasoning KD가 agent 능력을 자동으로 보존하지 않는다.</p>
+      <p class="cite">Can Compressed LLMs Truly Act? (ACBench, 2025)</p>
+    </div>
+    <div class="insight-card green">
+      <h4>✓ 권고: quantization이 KD보다 tool-use 보존에 유리</h4>
+      <p>GPTQ 4-bit / AWQ INT4는 tool use와 workflow generation 능력을 1~3% 손실로 유지한다. agent 시스템에서 serving latency를 줄이려면 KD 계열보다 quantization이 더 안전한 출발점이다.</p>
+      <p class="cite">Can Compressed LLMs Truly Act? (ACBench, 2025)</p>
+    </div>
+    <div class="insight-card orange">
+      <h4>데이터 설계: step별 분리 + negative sample</h4>
+      <p>retrieval, instruction following, reasoning, understanding 능력은 서로 학습 속도가 달라 하나의 corpus에 섞으면 빠른 능력이 먼저 학습되어 느린 능력 학습이 충분히 진행되지 않을 수 있다 [본문 §3 확인 권장]. 각 능력을 분리해 학습하고, "이렇게 하면 안 된다"는 negative sample을 포함해야 hallucination을 억제할 수 있다.</p>
+      <p class="cite">Agent-FLAN (2024) · abstract는 "different learning speeds"만 명시, 세부 능력 목록·과적합 표현은 본문 참조</p>
+    </div>
+    <div class="insight-card purple">
+      <h4>시스템 관점: 모델만 줄이는 게 전부가 아님</h4>
+      <p>agent 비용의 원천은 세 곳이다: (1) 모델 크기, (2) 누적 trajectory context 길이, (3) tool catalog 크기. 모델만 경량화하고 context와 tool 구조를 그대로 두면 비용의 상당 부분이 남는다.</p>
+      <p class="cite">AgentDiet (FSE 2026), ACON (2025), Less is More (DATE 2025)</p>
+    </div>
+  </div>
+
+  <!-- ── 25편 논문 발전 지도 ── -->
+  <h3 style="font-size:1rem;font-weight:700;margin:36px 0 16px;color:#1a1a2e;border-bottom:2px solid #4a90d9;padding-bottom:8px">
+    25편 논문 발전 지도
+  </h3>
+  <div class="phase-map">
+
+    <!-- Phase 1 -->
+    <div class="phase-row">
+      <div class="phase-block ph1">
+        <div class="phase-title">Phase 1 — 일반 LLM 경량화 기반 (2022–2024)</div>
+        <div class="papers-row">
+          <a href="#p14" class="paper-chip">GPTQ</a>
+          <a href="#p12" class="paper-chip">QLoRA</a>
+          <a href="#p13" class="paper-chip">AWQ</a>
+          <a href="#p7"  class="paper-chip">MiniLLM</a>
+        </div>
+      </div>
+    </div>
+    <div class="phase-row"><div class="phase-arrow"><div class="arr"></div><div class="arrowhead"></div></div><div style="flex:1;padding-top:6px;font-size:0.75rem;color:#888;font-style:italic">일반 경량화 기법이 구축됨 → 이를 agent에 적용하면?</div></div>
+
+    <!-- Phase 2 -->
+    <div class="phase-row">
+      <div class="phase-block ph2">
+        <div class="phase-title">Phase 2 — KD 목적 함수 정제 (2024)</div>
+        <div class="papers-row">
+          <a href="#p8"  class="paper-chip">GKD (On-policy)</a>
+          <a href="#p9"  class="paper-chip">PLaD (Preference)</a>
+          <a href="#p11" class="paper-chip">DPKD (KL+Pref)</a>
+          <a href="#p10" class="paper-chip">PAD (Pref Dist)</a>
+        </div>
+      </div>
+    </div>
+    <div class="phase-row"><div class="phase-arrow"><div class="arr"></div><div class="arrowhead"></div></div><div style="flex:1;padding-top:6px;font-size:0.75rem;color:#888;font-style:italic">KD 방법을 정교하게 개선해도 — agent에서는 다른 문제가 있음이 밝혀짐</div></div>
+
+    <!-- Phase 3 — GAP -->
+    <div class="phase-row">
+      <div class="phase-block ph3">
+        <div class="phase-title">Phase 3 — 핵심 발견: 일반 경량화 ≠ Agent 경량화 <span class="phase-gap-label">PIVOT</span></div>
+        <div class="papers-row">
+          <a href="#p15" class="paper-chip">Can Compressed LLMs Truly Act? (ACBench, 2025)</a>
+        </div>
+      </div>
+    </div>
+    <div class="phase-row"><div class="phase-arrow"><div class="arr"></div><div class="arrowhead"></div></div><div style="flex:1;padding-top:6px;font-size:0.75rem;color:#888;font-style:italic">이 논문은 선행 연구들이 전제한 문제를 실증적으로 확인·체계화함 (Phase Map은 논리적 흐름이며 chronological 순서가 아님)</div></div>
+
+    <!-- Phase 4 -->
+    <div class="phase-row">
+      <div class="phase-block ph4">
+        <div class="phase-title">Phase 4 — Agent Tuning 데이터 설계 (2023–2024)</div>
+        <div class="papers-row">
+          <a href="#p24" class="paper-chip">AgentTuning (trajectory data)</a>
+          <a href="#p25" class="paper-chip">Agent-FLAN (decomposed corpus)</a>
+        </div>
+      </div>
+    </div>
+    <div class="phase-row"><div class="phase-arrow"><div class="arr"></div><div class="arrowhead"></div></div><div style="flex:1;padding-top:6px;font-size:0.75rem;color:#888;font-style:italic">올바른 데이터 구성이 준비되면 → agent trajectory distillation 가능</div></div>
+
+    <!-- Phase 5 -->
+    <div class="phase-row">
+      <div class="phase-block ph5">
+        <div class="phase-title">Phase 5 — Agent Trajectory Distillation (2024–2025)</div>
+        <div class="papers-row">
+          <a href="#p3"  class="paper-chip">Sub-goal Distillation</a>
+          <a href="#p1"  class="paper-chip">Distilling LLM Agent</a>
+          <a href="#p2"  class="paper-chip">Structured Agent Distillation</a>
+        </div>
+      </div>
+    </div>
+    <div class="phase-row"><div class="phase-arrow"><div class="arr"></div><div class="arrowhead"></div></div><div style="flex:1;padding-top:6px;font-size:0.75rem;color:#888;font-style:italic">trajectory KD와 함께 → tool knowledge 자체를 줄이는 방향</div></div>
+
+    <!-- Phase 6 -->
+    <div class="phase-row">
+      <div class="phase-block ph6">
+        <div class="phase-title">Phase 6 — Tool Knowledge 내재화 (2024–2026)</div>
+        <div class="papers-row">
+          <a href="#p18" class="paper-chip">Less is More (tool 수 축소)</a>
+          <a href="#p4"  class="paper-chip">AgentDistill (MCP reuse)</a>
+          <a href="#p6"  class="paper-chip">Internalizing Tool Knowledge (QLoRA)</a>
+        </div>
+      </div>
+    </div>
+    <div class="phase-row"><div class="phase-arrow"><div class="arr"></div><div class="arrowhead"></div></div><div style="flex:1;padding-top:6px;font-size:0.75rem;color:#888;font-style:italic">모델과 tool을 줄이면 → trajectory context 비용도 직접 다룰 수 있음</div></div>
+
+    <!-- Phase 7 -->
+    <div class="phase-row">
+      <div class="phase-block ph7">
+        <div class="phase-title">Phase 7 — Agent 시스템 비용 절감 (2025–2026)</div>
+        <div class="papers-row">
+          <a href="#p16" class="paper-chip">AgentDiet (trajectory reduction)</a>
+          <a href="#p17" class="paper-chip">ACON (context compression)</a>
+        </div>
+      </div>
+    </div>
+    <div class="phase-row"><div class="phase-arrow"><div class="arr"></div><div class="arrowhead"></div></div><div style="flex:1;padding-top:6px;font-size:0.75rem;color:#888;font-style:italic">이 모든 기법이 실제 edge SLM deployment와 결합됨</div></div>
+
+    <!-- Phase 8 -->
+    <div class="phase-row">
+      <div class="phase-block ph8">
+        <div class="phase-title">Phase 8 — Edge SLM Agent 실증 (2025)</div>
+        <div class="papers-row">
+          <a href="#p19" class="paper-chip">Small Models, Big Tasks</a>
+          <a href="#p21" class="paper-chip">TinyLLM (SFT+DPO)</a>
+          <a href="#p20" class="paper-chip">In-Vehicle SLM</a>
+        </div>
+      </div>
+    </div>
+    <div class="phase-row"><div class="phase-arrow"><div class="arr"></div><div class="arrowhead"></div></div><div style="flex:1;padding-top:6px;font-size:0.75rem;color:#888;font-style:italic">실증 결과를 종합한 아키텍처 관점</div></div>
+
+    <!-- Phase 9 -->
+    <div class="phase-row">
+      <div class="phase-block ph9">
+        <div class="phase-title">Phase 9 — SLM-first 아키텍처 & 평가 체계 (2025)</div>
+        <div class="papers-row">
+          <a href="#p22" class="paper-chip">SLMs Future (position)</a>
+          <a href="#p23" class="paper-chip">SLMs for Agentic Systems (survey)</a>
+        </div>
+      </div>
+    </div>
+    <div class="phase-row"><div class="phase-arrow"><div class="arr"></div><div class="arrowhead"></div></div><div style="flex:1;padding-top:6px;font-size:0.75rem;color:#888;font-style:italic">장기적 방향: 여러 agent를 하나의 모델로 통합</div></div>
+
+    <!-- Phase 10 -->
+    <div class="phase-row">
+      <div class="phase-block ph10">
+        <div class="phase-title">Phase 10 — 다중 Agent 통합 Foundation Model (2025)</div>
+        <div class="papers-row">
+          <a href="#p5"  class="paper-chip">Chain-of-Agents (AFM)</a>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /phase-map -->
+
+  <!-- ── 3가지 비용 구조 ── -->
+  <h3 style="font-size:1rem;font-weight:700;margin:36px 0 12px;color:#1a1a2e;border-bottom:2px solid #4a90d9;padding-bottom:8px">
+    Agent 시스템의 비용 원천 — 3개 레이어
+  </h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:8px">
+    <div style="background:#eef4ff;border-radius:8px;padding:16px;border-top:3px solid #2563eb">
+      <div style="font-size:0.75rem;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">레이어 1 — 모델 비용</div>
+      <p style="font-size:0.84rem;color:#333;margin:0">파라미터 수, weight precision, KV cache 크기<br><br>대응 기법: GPTQ, AWQ, QLoRA, KD, pruning</p>
+    </div>
+    <div style="background:#fff7ed;border-radius:8px;padding:16px;border-top:3px solid #ea580c">
+      <div style="font-size:0.75rem;font-weight:700;color:#ea580c;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">레이어 2 — Context 비용</div>
+      <p style="font-size:0.84rem;color:#333;margin:0">매 step 누적되는 trajectory 길이 (action history + observation + tool result)<br><br>대응 기법: AgentDiet, ACON</p>
+    </div>
+    <div style="background:#f5f3ff;border-radius:8px;padding:16px;border-top:3px solid #7c3aed">
+      <div style="font-size:0.75rem;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">레이어 3 — Action Space 비용</div>
+      <p style="font-size:0.84rem;color:#333;margin:0">tool catalog 크기 (tool schema가 input token의 82.6%를 차지할 수 있음)<br><br>대응 기법: Less is More, Internalizing Tool Knowledge</p>
+    </div>
+  </div>
+
+</section>
+
+<div class="section-group-title">그룹 1 — Agent KD: trajectory distillation</div>
+
+<!-- ===== PAPER 1 ===== -->
+<section class="paper" id="p1">
+  <span class="category-label">Agent KD</span>
+  <h2>Distilling LLM Agent into Small Models with Retrieval and Code Tools</h2>
+  <div class="paper-meta">
+    Minki Kang et al. &nbsp;·&nbsp; arXiv:2505.17612 &nbsp;·&nbsp; NeurIPS 2025 Spotlight &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2505.17612" target="_blank">arxiv.org/abs/2505.17612</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>대형 언어 모델(LLM)은 복잡한 추론 작업에서 뛰어난 성능을 보이지만 연산 비용이 매우 높아 실제 배포에 제약이 따른다. 기존 접근은 교사 모델의 chain-of-thought(CoT) 궤적을 소형 학생 모델에 모방하게 하는 방식이었는데, 이 방식은 희귀한 사실 지식이나 정밀한 수치 계산이 필요한 상황에서 학생 모델이 환각(hallucination)을 일으키는 문제가 있다.</p>
+    <p>이 논문은 <strong>Agent Distillation</strong> 프레임워크를 제안한다. 단순히 CoT 텍스트를 따라 하게 하는 대신, retrieval tool과 code tool을 사용하는 LLM 기반 에이전트의 전체 문제 해결 행동 — 즉 추론(reasoning), 도구 호출(tool call), 관찰(observation), 재추론으로 이어지는 trajectory 전체 — 을 소형 모델로 전이한다.</p>
+    <p>결과적으로 0.5B, 1.5B, 3B 크기의 소형 모델이 CoT distillation만 한 1.5B, 3B, 7B 모델과 경쟁 가능한 성능을 달성했다. 사실적(factual) 도메인과 수학적(mathematical) 도메인에 걸친 8개 추론 태스크에서 평가했으며, 도메인 내/외 일반화 모두를 포함한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>일반 CoT KD와 Agent KD의 차이</strong></p>
+    <div class="block">
+      <div class="label">일반 CoT KD</div>
+      질문 → teacher가 사고 과정 텍스트 생성 → student가 그 텍스트를 SFT로 모방
+    </div>
+    <div class="block">
+      <div class="label">Agent KD (이 논문)</div>
+      질문 → reasoning → tool call → observation → 다음 reasoning → 최종 답변<br>
+      student가 이 전체 trajectory(도구 사용 포함)를 학습
+    </div>
+
+    <p><strong>두 가지 핵심 기여</strong></p>
+    <ul>
+      <li><strong>First-thought prefix:</strong> 교사 모델이 trajectory를 생성할 때 첫 번째 사고 단계를 명시적으로 유도하는 프롬프팅 방법. 교사가 생성하는 trajectory의 품질을 높인다.</li>
+      <li><strong>Self-consistent action generation:</strong> 테스트 시점에 소형 에이전트의 견고성을 높이는 행동 생성 방식. 동일한 상황에서 일관된 action을 내도록 학습한다.</li>
+    </ul>
+
+    <p><strong>핵심 통찰</strong></p>
+    <p>소형 모델이 단순히 최종 답변만 맞히는 게 아니라, retrieval로 사실 정보를 조회하고 code로 계산을 수행하는 tool-using 행동 자체를 체득하면, 파라미터 크기를 한 단계 줄여도 더 큰 CoT 모델과 동등한 성능을 낼 수 있다는 것이 이 논문의 핵심 주장이다.</p>
+
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>평가 태스크</td><td>8개 추론 태스크 (factual + mathematical)</td></tr>
+      <tr><td>student 크기</td><td>0.5B, 1.5B, 3B</td></tr>
+      <tr><td>비교 대상</td><td>CoT distillation 기반 1.5B, 3B, 7B 모델</td></tr>
+      <tr><td>학회</td><td>NeurIPS 2025 Spotlight</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2505.17612v2/x2.png" alt="CoT distillation vs Agent distillation" onerror="this.style.display='none';document.getElementById('fb-p1').style.display='block'">
+    <div id="fb-p1" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 2: CoT distillation과 Agent distillation의 비교. CoT는 최종 답변 텍스트만 모방하지만, Agent distillation은 reasoning → tool call → observation 전체 trajectory를 학습시킨다. (출처: arXiv:2505.17612v2)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 2 ===== -->
+<section class="paper" id="p2">
+  <span class="category-label">Agent KD</span>
+  <h2>Structured Agent Distillation for Large Language Model</h2>
+  <div class="paper-meta">
+    Jun Liu et al. &nbsp;·&nbsp; arXiv:2505.13820 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2505.13820" target="_blank">arxiv.org/abs/2505.13820</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>LLM 기반 에이전트는 ReAct 프레임워크처럼 추론(reasoning)과 행동(action)을 교차하며 의사결정을 수행한다. 이러한 에이전트를 소형 모델로 압축하는 기존 방법들은 trajectory 전체를 하나의 텍스트 시퀀스로 SFT하거나, 토큰 단위 KL 발산을 최소화하는 방식을 사용한다. 이 접근은 추론 span과 행동 span을 구별하지 않아 각 구성 요소에 맞는 supervision을 제공하지 못한다는 문제가 있다.</p>
+    <p>이 논문은 <strong>Structured Agent Distillation</strong>을 제안한다. trajectory를 <code>[REASON]</code> span과 <code>[ACT]</code> span으로 명시적으로 분리하고, 각 span에 서로 다른 손실 함수(segment-specific loss)를 적용하여 교사 모델의 의사결정 구조를 더 정확하게 재현하도록 학습시킨다.</p>
+    <p>ALFWorld, HotPotQA-ReAct, WebShop 세 벤치마크에서 토큰 단위 distillation 및 단순 imitation learning 기반 baseline보다 일관되게 높은 성능을 보이며, 최소한의 성능 저하로 상당한 모델 압축을 달성했다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>[REASON]과 [ACT] span 분리의 의미</strong></p>
+    <p>에이전트의 trajectory는 크게 두 종류의 텍스트로 구성된다.</p>
+    <ul>
+      <li><strong>[REASON] span:</strong> 다음 행동을 결정하기 위한 내부 사고 과정. 예: "현재 상황을 분석하면 X를 먼저 해야 한다."</li>
+      <li><strong>[ACT] span:</strong> 실제 시스템에 전달되는 행동 명령. 예: tool 호출, 결과 JSON 생성, 다음 상태 전환 등.</li>
+    </ul>
+    <p>기존 토큰 수준 KD는 이 두 span을 구별하지 않고 동일한 가중치로 학습하지만, 이 논문은 각 span의 역할과 중요도가 다르다는 점을 활용해 <strong>구조 인지적 감독(structure-aware supervision)</strong>을 설계한다.</p>
+
+    <div class="block">
+      <div class="label">Structured Agent Distillation의 작동 방식</div>
+      1. 교사 모델의 trajectory에서 [REASON]과 [ACT] span을 태깅<br>
+      2. [REASON] span: 교사의 추론 충실도(reasoning fidelity)를 유지하는 손실 적용<br>
+      3. [ACT] span: 교사의 행동 일관성(action consistency)을 유지하는 별도 손실 적용<br>
+      4. 두 손실을 결합하여 학생 모델 학습
+    </div>
+
+    <p><strong>왜 구조적 분리가 중요한가</strong></p>
+    <p>소형 student 모델이 최종 JSON이나 tool call 결과만 맞히는 게 아니라, 어떤 판단을 거쳐 그 action을 생성했는지의 과정까지 보존해야 실제 agent workflow에서 예상 외 입력에 대응할 수 있다. 추론 span이 무너지면 행동 span도 잘못된 상태에서 결정되기 때문이다.</p>
+
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>벤치마크</td><td>ALFWorld, HotPotQA-ReAct, WebShop</td></tr>
+      <tr><td>비교 방법</td><td>token-level distillation, imitation learning</td></tr>
+      <tr><td>핵심 기여</td><td>span-level alignment가 agent 압축에 중요함을 입증</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2505.13820v5/x1.png" alt="Structured Agent Distillation framework" onerror="this.style.display='none';document.getElementById('fb-p2').style.display='block'">
+    <div id="fb-p2" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: Structured Agent Distillation 프레임워크 전체 구조. trajectory를 [REASON]과 [ACT] span으로 분리하고 각 span에 다른 손실 함수를 적용하는 방식을 보여준다. (출처: arXiv:2505.13820v5)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 3 ===== -->
+<section class="paper" id="p3">
+  <span class="category-label">Agent KD</span>
+  <h2>Sub-goal Distillation: A Method to Improve Small Language Agents</h2>
+  <div class="paper-meta">
+    Maryam Hashemzadeh et al. &nbsp;·&nbsp; arXiv:2405.02749 &nbsp;·&nbsp; 2024 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2405.02749" target="_blank">arxiv.org/abs/2405.02749</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>LLM은 장기적으로 이어지는 대화형 작업(long-horizon interactive tasks)에서 막대한 연산 비용과 호출 횟수 제한으로 인해 실용적으로 사용하기 어렵다. 이 논문은 수십억 파라미터 LLM의 성능을 770M 크기의 소형 언어 모델로 전이하는 방법을 제안한다.</p>
+    <p>핵심 아이디어는 에이전트를 두 모듈로 나누는 <strong>계층적 에이전트(hierarchical agent)</strong> 구조다. 계획 모듈(planning module)은 LLM으로부터 knowledge distillation을 통해 sub-goal을 생성하는 방법을 학습하고, 실행 모듈(execution module)은 그 sub-goal을 달성하기 위한 기본 행동(elementary action)을 수행한다. 추론 시점에 두 모듈 모두 LLM에 의존하지 않으므로 LLM 호출 비용이 고정 비용(fixed cost)으로 제한된다.</p>
+    <p>ScienceWorld 벤치마크에서 elementary action만 모방하는 standard imitation learning보다 16.7%(absolute) 향상을 달성했다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>Sub-goal이란 무엇인가</strong></p>
+    <p>전체 목표(goal)를 달성하기 위한 중간 단계 목표다. LLM은 oracle path(정답 경로)를 보고 그 경로에 sub-goal 시퀀스를 주석으로 달아준다. 이렇게 주석이 달린 데이터로 두 모듈을 fine-tune한다.</p>
+
+    <div class="block">
+      <div class="label">학습 데이터 생성 과정</div>
+      1. LLM에 oracle path(정답 경로)를 제공<br>
+      2. LLM이 그 경로에 "sub-goal 시퀀스" 주석을 추가<br>
+      3. 주석이 달린 데이터로 planning module과 execution module을 각각 fine-tune
+    </div>
+
+    <div class="block">
+      <div class="label">추론 시점 구조</div>
+      사용자 입력 → planning module (sub-goal 생성) → execution module (elementary action 수행)<br>
+      ※ 이 과정에서 LLM 실시간 호출 없음
+    </div>
+
+    <p><strong>왜 sub-goal이 elementary action만 모방하는 것보다 나은가</strong></p>
+    <p>elementary action만 모방하면 개별 행동의 순서를 외우는 수준이 된다. 반면 sub-goal을 학습하면 중간 목표 개념을 이해하고, 그 목표를 달성하기 위한 행동 시퀀스를 계획할 수 있다. 이 계획 능력이 새로운 상황에서의 일반화를 가능하게 한다.</p>
+
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>벤치마크</td><td>ScienceWorld (멀티 태스크 텍스트 환경)</td></tr>
+      <tr><td>student 크기</td><td>770M parameters</td></tr>
+      <tr><td>성능 향상</td><td>16.7% absolute 향상 (vs. elementary action imitation)</td></tr>
+      <tr><td>추론 시 LLM 의존</td><td>없음 (고정 비용)</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2405.02749v1/extracted/2405.02749v1/figures/diff_mdls_4_new.png" alt="Sub-goal Distillation model size comparison" onerror="this.style.display='none';document.getElementById('fb-p3').style.display='block'">
+    <div id="fb-p3" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 5a: 모델 크기별 성능 비교. 770M sub-goal distillation 모델이 elementary action만 모방하는 baseline보다 16.7% absolute 향상을 달성하는 결과를 보여준다. (출처: arXiv:2405.02749v1)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 4 ===== -->
+<section class="paper" id="p4">
+  <span class="category-label">Agent KD · Training-Free</span>
+  <h2>AgentDistill: Training-Free Agent Distillation with Generalizable MCP Boxes</h2>
+  <div class="paper-meta">
+    arXiv:2506.14728 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2506.14728" target="_blank">arxiv.org/abs/2506.14728</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>기존 agent distillation 연구들은 대부분 교사 에이전트의 전체 trajectory를 재생하거나 step-by-step 도구 사용을 모방하는 방식을 취한다. 이 방식은 학생 에이전트가 새로운 환경에서 동적으로 계획을 세우고 행동하는 능력을 학습시키기 어렵다는 한계가 있다.</p>
+    <p>AgentDistill은 <strong>추가 학습 없이(training-free)</strong> 교사 에이전트가 만든 MCP(Model-Context-Protocols) 모듈을 직접 재사용하는 방식을 제안한다. MCP는 교사 에이전트가 자율적으로 생성한 구조화되고 재사용 가능한 작업 해결 모듈이다. 이 모듈을 학생 에이전트가 재사용함으로써 새로운 문제를 최소한의 감독 없이 해결할 수 있다.</p>
+    <p>생물의학 및 수학 벤치마크에서 GPT-4o를 활용하는 OctoTools 같은 고성능 시스템과 비견할 성능을 달성했다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>MCP Box란 무엇인가</strong></p>
+    <p>MCP(Model-Context-Protocol)는 특정 작업 유형에 대한 해결 절차를 담은 구조화된 모듈이다. 교사 에이전트가 문제를 해결하는 과정에서 자율적으로 이 모듈을 생성하며, 유사한 문제에 재사용할 수 있도록 일반화된 형태로 저장된다.</p>
+
+    <div class="block">
+      <div class="label">일반 Agent KD vs AgentDistill</div>
+      <strong>일반 Agent KD:</strong> 교사 trajectory로 student weight를 업데이트<br>
+      <strong>AgentDistill:</strong> 교사가 만든 MCP 모듈을 student가 직접 재사용 → 학습 없음
+    </div>
+
+    <p><strong>왜 이게 가능한가</strong></p>
+    <p>MCP는 특정 모델에 종속된 지식이 아니라 작업 해결 절차 자체를 담은 모듈이기 때문에, 더 작은 모델도 해당 절차를 따라 실행할 수 있다. 학생 모델의 역할은 MCP가 정의한 절차를 올바르게 실행하는 것이며, 이 절차를 새로 학습할 필요가 없다.</p>
+
+    <p><strong>적용 한계</strong></p>
+    <p>이 방식은 model compression이라기보다 workflow-level knowledge reuse에 가깝다. 모델 자체의 파라미터나 추론 비용이 줄어드는 게 아니라, 교사 에이전트가 사전에 해결한 문제의 솔루션을 재활용하는 것이다.</p>
+
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>학습 필요 여부</td><td>없음 (training-free)</td></tr>
+      <tr><td>벤치마크</td><td>생물의학, 수학 벤치마크</td></tr>
+      <tr><td>비교 대상</td><td>OctoTools (GPT-4o 기반)</td></tr>
+      <tr><td>특징</td><td>model compression이 아닌 workflow compression</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2506.14728v1/x3.png" alt="AgentDistill framework overview" onerror="this.style.display='none';document.getElementById('fb-p4').style.display='block'">
+    <div id="fb-p4" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 3: AgentDistill 프레임워크 개요. 교사 에이전트가 MCP Box를 자율 생성하고, 학생 에이전트가 추가 학습 없이 이를 재사용해 새로운 도메인의 문제를 해결하는 전체 흐름. (출처: arXiv:2506.14728v1)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 5 ===== -->
+<section class="paper" id="p5">
+  <span class="category-label">Agent KD · Foundation Model</span>
+  <h2>Chain-of-Agents: End-to-End Agent Foundation Models via Multi-Agent Distillation and Agentic RL</h2>
+  <div class="paper-meta">
+    Weizhen Li et al. &nbsp;·&nbsp; arXiv:2508.13167 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2508.13167" target="_blank">arxiv.org/abs/2508.13167</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>기존 multi-agent 시스템은 수동적인 프롬프트 엔지니어링과 복잡한 agent framework에 의존하며, 연산 효율이 낮고 데이터 중심 학습의 이점을 활용하지 못한다는 한계가 있다.</p>
+    <p>이 논문은 <strong>Chain-of-Agents(CoA)</strong>라는 새로운 추론 패러다임을 제안한다. 여러 에이전트가 협업하던 작업을 단일 모델이 내부에서 end-to-end로 수행하는 방식이다. 모델은 문제 해결 과정에서 다양한 tool agent와 role-playing agent를 동적으로 활성화해 multi-agent 협업을 단일 모델 내에서 시뮬레이션한다.</p>
+    <p>학습 방법은 두 단계다. 첫째, 최첨단 multi-agent 시스템의 behavior를 CoA trajectory로 증류해 agentic SFT를 수행한다. 둘째, 검증 가능한 에이전트 태스크에서 agentic RL을 적용해 성능을 추가로 향상시킨다. 이렇게 학습된 모델을 <strong>Agent Foundation Model(AFM)</strong>이라 부른다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>Chain-of-Agents 패러다임</strong></p>
+    <p>기존 방식은 orchestrator가 여러 전문 agent를 순차 호출하는 구조였다. CoA는 이 협업 구조를 단일 모델의 내부 추론 패턴으로 내재화한다. 모델이 한 번의 forward pass 흐름 안에서 여러 역할을 동적으로 수행한다.</p>
+
+    <div class="block">
+      <div class="label">학습 파이프라인</div>
+      단계 1: 최고 성능 multi-agent 시스템 → CoA trajectory 수집 → agentic SFT<br>
+      단계 2: 검증 가능한 agent 태스크 → agentic RL → AFM
+    </div>
+
+    <p><strong>실용적 의미와 비용</strong></p>
+    <p>이 접근은 여러 번의 LLM 호출 대신 단일 모델 호출로 복잡한 작업을 처리하므로 latency를 낮출 수 있다. 그러나 CoA trajectory 데이터 수집과 agentic RL 학습이 필요하므로 연구 스케일이 크다. 전체 연구 결과(모델 weights, 학습 코드, 데이터)를 오픈소스로 공개했다.</p>
+
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>결과 모델</td><td>Agent Foundation Model (AFM)</td></tr>
+      <tr><td>평가 환경</td><td>web agent, code agent 벤치마크</td></tr>
+      <tr><td>학습 방법</td><td>multi-agent distillation (SFT) + agentic RL</td></tr>
+      <tr><td>공개 여부</td><td>모델, 코드, 데이터 전체 오픈소스</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <div class="figure-placeholder"><span>[ ]</span>arXiv:2508.13167 — HTML 버전 미제공 (논문 PDF 참조)</div>
+    <p>multi-agent 시스템의 trajectory를 단일 모델의 CoA 형태로 증류하는 전체 학습 흐름.</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 6 ===== -->
+<section class="paper" id="p6">
+  <span class="category-label">Agent KD · QLoRA · Tool Internalization</span>
+  <h2>Internalizing Tool Knowledge in Small Language Models via QLoRA Fine-Tuning</h2>
+  <div class="paper-meta">
+    Yuval Shemla, Ayal Yakobe, Tanmay Agarwal &nbsp;·&nbsp; arXiv:2605.17774 &nbsp;·&nbsp; 2026 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/html/2605.17774v1" target="_blank">arxiv.org/html/2605.17774v1</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>현재 LLM 기반 에이전트 시스템에서는 매 요청마다 전체 tool schema(도구의 이름, 인수 형식, 설명 등)를 prompt에 포함해야 한다. AssetOpsBench 환경에서 이 tool description은 입력 토큰의 <strong>82.6%</strong>를 차지하며, 이는 심각한 token overhead와 latency 증가를 유발한다.</p>
+    <p>이 논문은 이 문제를 <strong>QLoRA fine-tuning</strong>으로 해결한다. 약 1,700개의 tool-use 예시로 소형 모델을 학습시켜, 추론 시점에 tool description 없이도 올바른 structured tool-use plan을 생성할 수 있게 만드는 <strong>description-free inference</strong>를 실현한다.</p>
+    <p>Gemma 4 E4B 모델은 AT-F1 0.65, Judge score 3.88을 달성해 full tool description을 제공받는 미세조정 미실시 baseline(AT-F1 0.47, Judge score 2.88)을 능가했다. Qwen3-4B는 Judge score 3.78로 비슷한 성능을 내면서 Gemma 대비 메모리를 62% 줄이고 추론 속도를 2.5배 높였다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>문제: tool schema의 token overhead</strong></p>
+    <p>MCP 기반 에이전트에서 tool catalog를 포함한 prompt는 약 2,400 토큰에 달하며, 이 중 tool description schema 텍스트만 ~2,200 토큰이다. fine-tuning 후 description-free 추론에서 prompt는 ~128 토큰으로 줄어든다. 이는 입력 길이 82.6% 감소에 해당한다.</p>
+
+    <div class="block">
+      <div class="label">학습 데이터 구성 (총 ~1,741개, Config C)</div>
+      Tool Knowledge (~500개): 어떤 도구가 있는지, 인수 형식, 유사 도구 구별 방법<br>
+      Planning (~1,200개): 자연어 쿼리 → Task/Agent/Tool/Args 계획 매핑<br>
+      Execution (~100개): 계획 + 실행 trace 결합, {step_N} placeholder 패턴
+    </div>
+
+    <div class="block">
+      <div class="label">QLoRA 학습 설정</div>
+      8-bit QLoRA / LoRA rank r=32 / α=64 / dropout 0.05<br>
+      learning rate: 2×10⁻⁴ (cosine schedule) / 2 epoch / A100 단일 GPU<br>
+      총 실험 비용: ~$62 (A100 compute)
+    </div>
+
+    <p><strong>LoRA rank와 catastrophic forgetting trade-off</strong></p>
+    <p>Gemma 실험에서 rank r=32가 계획 품질(Judge 3.88, AT-F1 0.65)을 최대화하지만, 일반 MCQ 정확도는 84.0% → 67.0%(79.8% 유지)로 저하됐다. r=8은 계획 품질이 낮지만(Judge 3.77) MCQ 유지율이 82.1%로 높다. 더 작은 rank가 일반 지식을 더 잘 보존한다.</p>
+
+    <p><strong>Qwen3-4B의 catastrophic forgetting</strong></p>
+    <p>Qwen3-4B는 기본 MCQ 정확도 75.0%에서 fine-tuning 후 46.0%로 떨어져 유지율이 61.3%에 그쳤다. 논리 추론(75% → 25%), 상식 완성(50% → 27%)에서 특히 심각했다. 동일 LoRA rank에서 trainable parameter 비율이 Gemma(0.63%) 대비 Qwen3(1.62%)로 더 높기 때문으로 분석된다.</p>
+
+    <table>
+      <tr><th>모델</th><th>AT-F1</th><th>Judge Score</th><th>메모리</th><th>MCQ 유지율</th></tr>
+      <tr><td>Gemma 4 E4B (r=32)</td><td>0.65</td><td>3.88</td><td>기준</td><td>79.8%</td></tr>
+      <tr><td>Qwen3-4B (r=32)</td><td>0.605</td><td>3.78</td><td>62% 절감</td><td>61.3%</td></tr>
+      <tr><td>Informed baseline (미학습)</td><td>0.47</td><td>2.88</td><td>—</td><td>—</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2605.17774v1/figures/lora_rank_ablation.png" alt="LoRA rank ablation - planning quality vs forgetting" onerror="this.style.display='none';document.getElementById('fb-p6').style.display='block'">
+    <div id="fb-p6" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 4: LoRA rank(r∈{8,16,32,64})에 따른 planning quality(AT-F1, Judge score) 변화. r=32에서 peak를 보이고 r=64에서는 오히려 소폭 하락한다. rank가 클수록 planning quality는 높아지지만 catastrophic forgetting도 심해지는 trade-off 관계. (출처: arXiv:2605.17774v1)</p>
+  </div>
+</section>
+
+<hr class="divider">
+<div class="section-group-title">그룹 2 — KD 목적 함수: forward KL · reverse KL · preference</div>
+
+<!-- ===== PAPER 7 ===== -->
+<section class="paper" id="p7">
+  <span class="category-label">KD · Reverse KL</span>
+  <h2>MiniLLM: Knowledge Distillation of Large Language Models</h2>
+  <div class="paper-meta">
+    ICLR 2024 &nbsp;·&nbsp;
+    <a href="https://openreview.net/forum?id=5h0qf7IBZZ" target="_blank">openreview.net/forum?id=5h0qf7IBZZ</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>LLM KD에서 기존 표준 방법인 forward KL divergence는 student가 teacher의 전체 분포를 덮으려 해 확률이 낮은 영역까지 과대 추정하는 문제(coverage-seeking behavior)가 있다. 이로 인해 student가 품질 낮은 텍스트를 생성하는 경향이 강해진다.</p>
+    <p>MiniLLM은 이를 <strong>reverse KL divergence</strong>로 대체한다. Reverse KL은 teacher 분포의 주요 모드(mode)에 집중하는 mode-seeking behavior를 유도하여, student가 높은 확률의 정확한 응답에 집중하게 만든다.</p>
+    <p>GPT-2, OPT, LLaMA 세 모델 계열에서 120M~13B 크기 모델을 대상으로 실험했다. MiniLLM은 SeqKD 대비 GPT-4 점수 기준 약 5%, SFT w/o KD 대비 10%까지 향상됐다. 760M MiniLLM student는 1.5B teacher보다 UnNI 벤치마크에서 더 높은 성능(Rouge-L 36.4 vs 33.1)을 보였다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>Forward KL vs Reverse KL</strong></p>
+    <table>
+      <tr><th>구분</th><th>Forward KL</th><th>Reverse KL (MiniLLM)</th></tr>
+      <tr><td>최적화 방향</td><td>KL(teacher ‖ student)</td><td>KL(student ‖ teacher)</td></tr>
+      <tr><td>행동 특성</td><td>coverage-seeking: teacher 분포 전체를 덮으려 함</td><td>mode-seeking: teacher의 주요 모드에 집중</td></tr>
+      <tr><td>문제점</td><td>student가 teacher의 저확률 영역 과대 추정</td><td>생성 다양성 소폭 감소 (Dist-4: 99.5 → 99.0)</td></tr>
+    </table>
+
+    <p><strong>Reverse KL 최적화의 기술적 어려움</strong></p>
+    <p>텍스트 생성은 이산적(discrete) token 공간에서 자기회귀 샘플링이 필요하므로, gradient를 직접 역전파할 수 없다. 따라서 <strong>Policy Gradient</strong> 기반 접근이 필요하다. MiniLLM은 안정적 학습을 위해 세 가지 전략을 추가로 도입한다.</p>
+    <ul>
+      <li><strong>Single-step decomposition:</strong> 긴 시퀀스의 gradient를 단일 단계 예측으로 분해</li>
+      <li><strong>Teacher-mixed sampling:</strong> 다음 토큰 샘플링 시 teacher와 student 분포를 혼합하여 reward hacking 방지</li>
+      <li><strong>Length normalization:</strong> 모델이 짧고 단순한 응답만 생성해 reverse KL 값을 낮추는 현상(length bias) 방지</li>
+    </ul>
+
+    <p><strong>Student가 teacher를 능가하는 이유</strong></p>
+    <p>Teacher 모델은 MLE로 학습되어 exposure bias(학습 시에는 정답 prefix를, 추론 시에는 자기 생성 prefix를 보는 불일치)가 있다. MiniLLM은 policy optimization 방식으로 학습되어 이 bias를 줄이므로, 학생 모델이 일부 평가 지표에서 teacher를 능가할 수 있다.</p>
+
+    <table>
+      <tr><th>항목</th><th>수치</th></tr>
+      <tr><td>MiniLLM vs SeqKD (GPT-4 점수)</td><td>약 5% 향상</td></tr>
+      <tr><td>MiniLLM vs SFT w/o KD</td><td>최대 10% 향상</td></tr>
+      <tr><td>MiniLLM vs teacher (760M vs 1.5B, UnNI Rouge-L)</td><td>36.4 vs 33.1 (학생이 높음)</td></tr>
+      <tr><td>다양성 손실 (Dist-4)</td><td>99.5 → 99.0 (미미함)</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <div class="figure-placeholder"><span>[ ]</span>OpenReview:5h0qf7IBZZ — HTML 버전 미제공 (논문 PDF 참조)</div>
+    <p>teacher/student 분포에 대한 forward/reverse KL의 coverage-seeking vs mode-seeking 행동 차이를 나타낸 그림.</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 8 ===== -->
+<section class="paper" id="p8">
+  <span class="category-label">KD · On-Policy</span>
+  <h2>GKD: On-Policy Distillation of Language Models — Learning from Self-Generated Mistakes</h2>
+  <div class="paper-meta">
+    Rishabh Agarwal et al. &nbsp;·&nbsp; arXiv:2306.13649 &nbsp;·&nbsp; ICLR 2024 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2306.13649" target="_blank">arxiv.org/abs/2306.13649</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>자기회귀 시퀀스 모델을 위한 기존 KD 방법들은 학습 중 사용하는 출력 시퀀스와 추론 시 student가 실제로 생성하는 시퀀스 사이에 <strong>distribution mismatch</strong>가 발생한다. 고정된 teacher output만 보고 학습한 student는 자신이 실제로 생성하는 오류 분포를 학습하지 못한다.</p>
+    <p>GKD(Generalized Knowledge Distillation)는 이 문제를 <strong>on-policy distillation</strong>으로 해결한다. Student가 학습 중 자기 스스로 시퀀스를 생성하고, 그 생성 결과에 대해 teacher의 feedback을 받아 학습한다. 이를 통해 student는 자신이 실제로 틀리는 상황에서 어떻게 수정해야 하는지를 학습한다.</p>
+    <p>GKD는 또한 forward KL, reverse KL, JSD 등 다양한 divergence 함수를 사용할 수 있는 유연성을 제공하며, RLHF(RL fine-tuning)와도 통합 가능하다. 요약, 번역, 수학 추론, instruction-tuning 등 다양한 태스크에서 효능이 검증됐다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>Off-policy vs On-policy KD</strong></p>
+    <table>
+      <tr><th>구분</th><th>Off-policy KD</th><th>On-policy KD (GKD)</th></tr>
+      <tr><td>학습 데이터</td><td>teacher가 생성한 고정 trajectory</td><td>student가 실시간 생성한 trajectory</td></tr>
+      <tr><td>supervision</td><td>teacher output을 SFT target으로 사용</td><td>student output에 대한 teacher feedback</td></tr>
+      <tr><td>장점</td><td>구현 단순, 데이터 재사용 가능</td><td>student 실제 오류 분포 학습, distribution mismatch 해소</td></tr>
+      <tr><td>단점</td><td>student 실제 오류 학습 불가</td><td>매 iteration student inference 필요 → 학습 비용 증가</td></tr>
+    </table>
+
+    <p><strong>Agent에서 On-policy가 중요한 이유</strong></p>
+    <p>에이전트 workflow에서 student가 한 단계를 잘못 판단하면, 그 결과로 생성된 observation과 이후 모든 action이 달라진다. Off-policy KD는 teacher가 만든 "올바른" trajectory만 보여주므로, student가 자신이 만든 "잘못된" intermediate state에서 어떻게 회복해야 하는지를 학습하지 못한다. On-policy GKD는 이 문제를 직접 다룬다.</p>
+
+    <div class="block">
+      <div class="label">GKD의 핵심 알고리즘 (개념)</div>
+      1. Student가 현재 파라미터로 시퀀스 생성<br>
+      2. 생성된 시퀀스에 대해 teacher가 log-likelihood 또는 다른 feedback 계산<br>
+      3. 이 feedback으로 student 파라미터 업데이트<br>
+      4. 반복
+    </div>
+
+    <p><strong>RLHF와의 통합</strong></p>
+    <p>GKD의 on-policy 구조는 RLHF의 PPO와 유사한 형태다. Teacher를 reward 모델로 간주하면, GKD는 teacher 분포로부터의 KL 제약 하에 student를 최적화하는 RL 문제로 해석할 수 있다. 이를 통해 distillation과 RLHF를 단일 프레임워크로 통합할 수 있다.</p>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2306.13649v3/x1.png" alt="GKD framework - on-policy distillation" onerror="this.style.display='none';document.getElementById('fb-p8').style.display='block'">
+    <div id="fb-p8" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: GKD 프레임워크 개요. Student가 스스로 시퀀스를 생성하고 teacher의 feedback으로 학습하는 on-policy distillation 구조. off-policy(고정 teacher output 학습)와의 차이를 보여준다. (출처: arXiv:2306.13649v3)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 9 ===== -->
+<section class="paper" id="p9">
+  <span class="category-label">KD · Preference</span>
+  <h2>PLaD: Preference-based Large Language Model Distillation with Pseudo-Preference Pairs</h2>
+  <div class="paper-meta">
+    Rongzhi Zhang et al. &nbsp;·&nbsp; arXiv:2406.02886 &nbsp;·&nbsp; ACL 2024 Findings &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2406.02886" target="_blank">arxiv.org/abs/2406.02886</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>LLM KD에서 전통적인 KL divergence 기반 방법은 세 가지 문제에 직면한다. 첫째, 많은 teacher 모델이 API로만 제공되어 internal states(logits)에 접근할 수 없다. 둘째, teacher와 student 간 capacity gap이 커서 student가 teacher 분포를 직접 흉내 내기 어렵다. 셋째, teacher의 잘못된 보정(mis-calibration)이 student에 그대로 전달된다.</p>
+    <p>PLaD는 이 문제를 <strong>pseudo-preference pair</strong> 기반의 preference learning으로 우회한다. Teacher output과 student output의 성능 차이를 활용해 "teacher 출력 > student 출력"이라는 preference pair를 자동으로 구성하고, ranking loss로 student의 sequence likelihood 추정을 재보정한다. Student가 teacher를 직접 모방하는 대신, 두 출력 간의 품질 관계를 학습한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>Pseudo-preference pair 구성 원리</strong></p>
+    <p>Teacher와 student 모델 간에는 capacity 차이가 존재하므로, 동일한 prompt에 대해 teacher output이 student output보다 품질이 높다는 전제가 성립한다. 이 전제를 이용해 학습 데이터를 구성한다.</p>
+    <div class="block">
+      <div class="label">Pseudo-preference pair 구성</div>
+      prompt: 입력 (예: 사용자 로그 + 기존 memory)<br>
+      chosen (선호): teacher output (더 좋은 결과)<br>
+      rejected (비선호): student output (현재 수준의 결과)<br>
+      → 이 pair로 ranking loss 학습
+    </div>
+
+    <p><strong>Ranking loss가 하는 일</strong></p>
+    <p>단순히 teacher 답변을 SFT target으로 학습하면, student는 teacher를 모방하는 데 집중한다. Ranking loss는 대신 "chosen이 rejected보다 높은 likelihood를 가져야 한다"는 순서 관계를 학습시킨다. 이는 teacher output 자체를 외우는 게 아니라 품질 순서를 학습하는 방식이다.</p>
+
+    <p><strong>세 가지 문제에 대한 해결 방식</strong></p>
+    <ul>
+      <li><strong>internal states 접근 불필요:</strong> teacher의 logits나 hidden state가 필요 없고, teacher output 텍스트만 있으면 된다.</li>
+      <li><strong>capacity gap 우회:</strong> student가 teacher를 완벽히 모방할 수 없어도, teacher output이 student output보다 낫다는 관계만 학습하면 된다.</li>
+      <li><strong>mis-calibration 완화:</strong> ranking loss가 절대적 확률 값이 아닌 상대적 순서를 학습하므로, teacher의 잘못된 확률 보정이 덜 전달된다.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2406.02886v2/x1.png" alt="PLaD framework overview" onerror="this.style.display='none';document.getElementById('fb-p9').style.display='block'">
+    <div id="fb-p9" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: PLaD 프레임워크. Teacher output(chosen)과 student output(rejected)으로 pseudo-preference pair를 구성하고, ranking loss로 student의 sequence likelihood 추정을 재보정하는 전체 흐름. (출처: arXiv:2406.02886v2)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 10 ===== -->
+<section class="paper" id="p10">
+  <span class="category-label">KD · Preference Distribution</span>
+  <h2>Capturing Nuanced Preferences: Preference-Aligned Distillation for Small Language Models (PAD)</h2>
+  <div class="paper-meta">
+    Yanggan Gu et al. &nbsp;·&nbsp; arXiv:2502.14272 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2502.14272" target="_blank">arxiv.org/abs/2502.14272</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>기존 preference 기반 KD(PLaD 등)는 두 응답을 쌍으로 비교(pairwise comparison)하여 어느 쪽이 더 좋은지만 학습한다. 이 방식은 두 응답 간 차이의 정도(extent of difference)를 무시해, student가 미묘한 선호도(nuanced preference)를 학습하지 못하는 한계가 있다.</p>
+    <p>PAD(Preference-Aligned Distillation)는 teacher의 preference 지식을 단순 이진 비교가 아닌 <strong>모든 잠재적 선호에 대한 확률 분포</strong>로 모델링한다. 언어 모델 자체가 reward function으로 기능해 intrinsic preference를 반영할 수 있다는 통찰에 기반한다.</p>
+    <p>AlpacaEval 2와 Arena-Hard 벤치마크에서 기존 방법 대비 20% 이상 향상됐으며, MT-Bench에서는 Gemma 계열 student가 teacher를 능가하는 결과를 보였다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>Pairwise KD의 한계와 PAD의 접근</strong></p>
+    <table>
+      <tr><th>구분</th><th>Pairwise KD (PLaD 등)</th><th>PAD</th></tr>
+      <tr><td>선호도 표현</td><td>"A가 B보다 낫다" (이진)</td><td>여러 응답에 대한 확률 분포</td></tr>
+      <tr><td>차이의 정도</td><td>무시됨</td><td>분포로 표현됨</td></tr>
+      <tr><td>student 학습</td><td>순서 관계 학습</td><td>teacher의 intrinsic preference 분포를 일치시킴</td></tr>
+    </table>
+
+    <p><strong>PAD의 세 단계</strong></p>
+    <ul>
+      <li><strong>단계 1 — 다양한 응답 샘플링:</strong> high temperature로 여러 응답 후보를 생성한다. 다양한 품질의 응답이 섞이도록 설계한다.</li>
+      <li><strong>단계 2 — intrinsic preference 구성:</strong> teacher와 student 각각에 대해 생성된 응답들의 reward를 계산해 preference 분포를 구성한다. 언어 모델 자체가 자신이 생성한 응답들에 대해 얼마나 선호하는지를 내재적으로 나타낸다.</li>
+      <li><strong>단계 3 — 분포 일치:</strong> student의 intrinsic preference 분포를 teacher의 분포와 일치하도록 학습시킨다.</li>
+    </ul>
+
+    <table>
+      <tr><th>벤치마크</th><th>결과</th></tr>
+      <tr><td>AlpacaEval 2</td><td>기존 방법 대비 20% 이상 향상</td></tr>
+      <tr><td>Arena-Hard</td><td>기존 방법 대비 20% 이상 향상</td></tr>
+      <tr><td>MT-Bench (Gemma)</td><td>student가 teacher를 능가</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2502.14272v1/x2.png" alt="PAD framework - preference-aligned distillation" onerror="this.style.display='none';document.getElementById('fb-p10').style.display='block'">
+    <div id="fb-p10" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 2: PAD 프레임워크 전체 구조. (1) high temperature로 다양한 응답 샘플링 → (2) teacher/student의 reward 계산으로 intrinsic preference 구성 → (3) student의 preference 분포를 teacher에 맞춤. (출처: arXiv:2502.14272v1)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 11 ===== -->
+<section class="paper" id="p11">
+  <span class="category-label">KD · Preference · KL 결합</span>
+  <h2>Direct Preference Knowledge Distillation for Large Language Models (DPKD)</h2>
+  <div class="paper-meta">
+    Yixing Li et al. &nbsp;·&nbsp; arXiv:2406.19774 &nbsp;·&nbsp; 2024 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2406.19774" target="_blank">arxiv.org/abs/2406.19774</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>전통적인 KL divergence 기반 KD는 LLM 증류에서 두 가지 문제가 있다. 첫째, KL divergence는 두 분포 간의 차이를 측정하는 데 있어 LLM의 복잡한 의미 공간을 충분히 반영하지 못한다. 둘째, 단순 분포 매칭만으로는 "teacher output이 student output보다 더 선호된다"는 상대적 품질 관계를 학습하기 어렵다.</p>
+    <p>DPKD는 KL 기반 KD와 DPO류 preference learning을 두 단계로 결합한다. 1단계에서 implicit reward와 reverse KL을 함께 최적화하고, 2단계에서 teacher output이 student output보다 선호될 확률을 높이는 preference probability 개선을 수행한다. 120M~13B 크기 모델에서 다양한 데이터셋으로 baseline 대비 응답 정밀도와 exact match 비율 모두에서 성능이 향상됐다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>Implicit reward function의 역할</strong></p>
+    <p>언어 모델은 그 자체로 implicit reward function 역할을 할 수 있다. 모델이 특정 시퀀스를 생성할 확률이 높다는 것은 그 시퀀스를 "선호"한다는 의미로 해석할 수 있다. DPKD는 이 implicit reward를 KL divergence의 보완 신호로 활용한다.</p>
+
+    <div class="block">
+      <div class="label">DPKD 두 단계 학습</div>
+      <strong>단계 1:</strong> implicit reward + reverse KL divergence를 결합한 목적 함수 최적화<br>
+      → student가 teacher의 주요 분포 모드를 따르면서 품질 신호도 학습<br><br>
+      <strong>단계 2:</strong> teacher output의 preference probability를 student output보다 높이는 학습<br>
+      → "teacher 응답이 student 응답보다 더 좋다"는 관계를 명시적으로 학습
+    </div>
+
+    <p><strong>KD와 preference learning의 결합 의의</strong></p>
+    <p>기존에는 KD(분포 매칭)와 preference learning(DPO, ranking loss)을 별개의 학습 방식으로 취급했다. DPKD는 이 두 방식이 서로 보완적이며 단일 프레임워크로 통합 가능함을 보인다. 특히 implicit reward를 통해 KL과 preference 두 목적 함수를 수학적으로 연결한다.</p>
+
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>실험 모델 크기</td><td>120M ~ 13B parameters</td></tr>
+      <tr><td>평가 지표</td><td>output response precision, exact match percentage</td></tr>
+      <tr><td>결과</td><td>baseline 대비 두 지표 모두 향상</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2406.19774v2/extracted/6341030/figure/kld_insuff.png" alt="DPKD - KLD insufficiency illustration" onerror="this.style.display='none';document.getElementById('fb-p11').style.display='block'">
+    <div id="fb-p11" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 2: 전통적인 KL divergence의 측정 한계 시각화. KL 발산만으로는 LLM의 복잡한 의미 공간을 충분히 반영하지 못하며, DPKD가 implicit reward를 보완 신호로 도입하는 근거. (출처: arXiv:2406.19774v2)</p>
+  </div>
+</section>
+
+<hr class="divider">
+<div class="section-group-title">그룹 3 — Quantization: 학습 효율화 / 배포용 압축</div>
+
+<!-- ===== PAPER 12 ===== -->
+<section class="paper" id="p12">
+  <span class="category-label">Quantization · Fine-Tuning</span>
+  <h2>QLoRA: Efficient Finetuning of Quantized LLMs</h2>
+  <div class="paper-meta">
+    Tim Dettmers et al. &nbsp;·&nbsp; arXiv:2305.14314 &nbsp;·&nbsp; NeurIPS 2023 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2305.14314" target="_blank">arxiv.org/abs/2305.14314</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>LLM을 full fine-tuning하면 성능은 높지만 메모리 사용량이 너무 크다. 65B 파라미터 모델은 fp16 기준으로 약 130GB의 VRAM이 필요해 단일 GPU에서는 불가능하다. QLoRA는 이 문제를 해결하기 위해 사전 학습 모델을 4bit로 양자화한 채 고정하고, <strong>LoRA adapter</strong>로만 gradient를 흘려 fine-tuning하는 방식을 제안한다.</p>
+    <p>세 가지 핵심 기술(NF4 quantization, double quantization, paged optimizer)을 통해 65B 파라미터 모델을 단일 48GB GPU에서 fine-tuning할 수 있게 했으며, full 16-bit fine-tuning 수준의 성능을 유지한다. Vicuna 벤치마크에서 단일 GPU 24시간 학습으로 ChatGPT 성능의 99.3%에 달하는 Guanaco 모델을 공개했다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>세 가지 메모리 절감 기술</strong></p>
+    <ul>
+      <li><strong>4-bit NormalFloat (NF4):</strong> 정규 분포를 따르는 가중치에 대해 정보 이론적으로 최적화된 4bit 데이터 타입. 기존 INT4보다 양자화 오류가 낮다.</li>
+      <li><strong>Double quantization:</strong> 양자화 과정에서 발생하는 quantization constant(스케일 팩터 등)를 다시 양자화해 파라미터당 평균 약 0.5bit를 추가로 절약한다.</li>
+      <li><strong>Paged optimizer:</strong> GPU 메모리 스파이크 발생 시 optimizer state를 CPU 메모리로 페이징해 OOM(out-of-memory) 오류를 방지한다.</li>
+    </ul>
+
+    <div class="block">
+      <div class="label">QLoRA의 학습 구조</div>
+      Base model: 4bit로 양자화, 가중치 고정 (frozen)<br>
+      학습 대상: LoRA adapter 파라미터만 (전체의 &lt;1%)<br>
+      Gradient: frozen 4bit model을 통과해 LoRA adapter로 역전파<br>
+      배포: 4bit base + adapter 병합 또는 adapter 별도 서빙
+    </div>
+
+    <p><strong>QLoRA ≠ KD</strong></p>
+    <p>QLoRA는 지식 증류 방법이 아니다. KD를 메모리 효율적으로 수행하기 위한 fine-tuning 기법이다. Agent KD 연구에서는 "teacher agent trajectory를 학습 데이터로 사용하고, student를 QLoRA로 학습"하는 방식으로 결합된다.</p>
+
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>목표</td><td>65B 모델을 단일 48GB GPU에서 fine-tuning</td></tr>
+      <tr><td>성능</td><td>full 16-bit fine-tuning 수준 유지</td></tr>
+      <tr><td>Guanaco 결과</td><td>ChatGPT 성능의 99.3% (Vicuna 벤치마크, 24h 단일 GPU)</td></tr>
+      <tr><td>실험 규모</td><td>1,000개 이상 모델 fine-tuning, 8개 instruction 데이터셋</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <div class="figure-placeholder"><span>[ ]</span>arXiv:2305.14314 — HTML 버전 미제공 (논문 PDF 참조)</div>
+    <p>4bit로 고정된 base model에 LoRA adapter가 부착되고 gradient가 adapter로만 역전파되는 QLoRA 구조도.</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 13 ===== -->
+<section class="paper" id="p13">
+  <span class="category-label">Quantization · PTQ · Serving</span>
+  <h2>AWQ: Activation-aware Weight Quantization for On-Device LLM Compression and Acceleration</h2>
+  <div class="paper-meta">
+    Ji Lin et al. &nbsp;·&nbsp; MLSys 2024 &nbsp;·&nbsp;
+    <a href="https://proceedings.mlsys.org/paper_files/paper/2024/hash/42a452cbafa9dd64e9ba4aa95cc1ef21-Abstract-Conference.html" target="_blank">MLSys 2024 Proceedings</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>LLM의 거대한 모델 크기는 serving 시 메모리 제약(hardware barrier)과 토큰 생성 속도 저하(memory bandwidth bottleneck)를 유발한다. 기존 low-bit quantization 방법들은 역전파나 재구성(reconstruction) 과정에 의존해 특정 calibration set에 과적합되는 경향이 있다.</p>
+    <p>AWQ(Activation-aware Weight Quantization)는 activation을 관찰해 중요한 가중치(salient weights) 1%만 보호함으로써 quantization 오류를 크게 줄이는 방식을 제안한다. 역전파나 재구성 없이 per-channel scaling 최적화만 수행하므로 다양한 도메인과 모달리티에 대한 일반화 능력을 보존한다.</p>
+    <p>데스크탑과 모바일 GPU 모두에서 HuggingFace FP16 구현 대비 3배 이상 speedup을 달성했으며, 모바일 GPU에서 70B LLaMA-2 모델 배포를 최초로 실현했다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>핵심 관찰: 가중치는 모두 동등하게 중요하지 않다</strong></p>
+    <p>모델의 가중치 중 특정 1%의 "중요한" 가중치(salient weight)가 전체 성능에 불균형적으로 큰 영향을 미친다. 이 가중치를 낮은 bit로 양자화하면 오류가 크게 발생하므로, 보호할 수 있다면 전체 quantization 오류를 크게 줄일 수 있다.</p>
+
+    <p><strong>왜 activation을 보는가</strong></p>
+    <p>중요한 가중치를 찾는 기준으로 가중치의 크기(magnitude) 대신 활성화(activation)를 사용한다. 가중치가 activation이 큰 채널과 곱해질 때 더 큰 영향을 미치기 때문이다. 활성화가 큰 채널의 가중치를 보호하면 동일한 보호 비율로 더 많은 오류를 방지할 수 있다.</p>
+
+    <div class="block">
+      <div class="label">AWQ의 동작 방식</div>
+      1. calibration 데이터로 각 채널의 activation 크기 측정<br>
+      2. activation이 큰 채널 = salient weight로 식별<br>
+      3. per-channel scaling을 최적화해 salient weight를 보호<br>
+      4. 역전파/재구성 없이 PTQ 수행 → calibration set 과적합 없음
+    </div>
+
+    <p><strong>QLoRA vs AWQ의 역할 구분</strong></p>
+    <table>
+      <tr><th>구분</th><th>QLoRA</th><th>AWQ</th></tr>
+      <tr><td>목적</td><td>학습을 메모리 효율적으로 수행</td><td>학습된 모델을 배포용으로 압축</td></tr>
+      <tr><td>적용 시점</td><td>fine-tuning 중</td><td>학습 완료 후 (post-training)</td></tr>
+      <tr><td>학습 데이터 필요</td><td>필요</td><td>소량의 calibration 데이터만 필요</td></tr>
+    </table>
+
+    <table>
+      <tr><th>항목</th><th>수치</th></tr>
+      <tr><td>Speedup (FP16 대비)</td><td>desktop/mobile GPU 모두 3배 이상</td></tr>
+      <tr><td>Mobile GPU 70B 배포</td><td>최초 실현</td></tr>
+      <tr><td>보호 가중치 비율</td><td>1%만 보호해도 오류 크게 감소</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2306.00978v6/x1.png" alt="AWQ - activation-aware weight quantization overview" onerror="this.style.display='none';document.getElementById('fb-p13').style.display='block'">
+    <div id="fb-p13" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: AWQ 개요. activation 크기를 기준으로 salient weight 1%를 식별하고 per-channel scaling으로 보호함으로써 역전파 없이 low-bit quantization 오류를 최소화하는 메커니즘. (출처: arXiv:2306.00978v6, MLSys 2024)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 14 ===== -->
+<section class="paper" id="p14">
+  <span class="category-label">Quantization · PTQ · Second-Order</span>
+  <h2>GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers</h2>
+  <div class="paper-meta">
+    Elias Frantar et al. &nbsp;·&nbsp; arXiv:2210.17323 &nbsp;·&nbsp; ICLR 2023 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2210.17323" target="_blank">arxiv.org/abs/2210.17323</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>GPT, OPT와 같은 생성형 사전 학습 트랜스포머 모델은 복잡한 언어 모델링에서 탁월한 성능을 보이지만 연산 및 저장 비용이 극도로 높다. 대형 GPT 모델 추론에는 여러 대의 고성능 GPU가 필요해 사용성이 크게 제한된다.</p>
+    <p>GPTQ는 <strong>approximate second-order information</strong>에 기반한 one-shot weight quantization 방법이다. 175B 파라미터 GPT 모델을 약 4 GPU 시간 만에 3~4bit로 양자화할 수 있으며, 압축 전 모델 대비 무시할 수 있는 수준의 정확도 저하만 발생한다. 이전 one-shot quantization 방법 대비 압축 이득을 두 배 이상 향상시켰으며, 175B 모델을 단일 GPU에서 실행하는 것을 최초로 실현했다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>Second-order information 기반 양자화</strong></p>
+    <p>단순히 가중치 크기(magnitude)로 양자화 오류를 최소화하는 대신, 모델 출력에 대한 각 가중치의 영향을 2차 정보(Hessian 근사)를 통해 추정한다. 이를 통해 어떤 가중치를 낮은 bit로 변환할 때 오류가 가장 적게 발생하는지를 정확하게 계산할 수 있다.</p>
+
+    <p><strong>OBQ(Optimal Brain Quantization) 기반</strong></p>
+    <p>GPTQ는 OBS(Optimal Brain Surgeon) 계열의 알고리즘을 GPT 스케일로 확장한다. 레이어별로 순차적으로 가중치를 양자화하면서, 이미 양자화된 가중치가 만든 오류를 나머지 가중치로 보정(error compensation)하는 방식을 사용한다.</p>
+
+    <div class="block">
+      <div class="label">GPTQ의 주요 특징</div>
+      one-shot: 단일 pass로 전체 모델 양자화 (반복 학습 없음)<br>
+      layer-wise: 레이어별 독립 최적화로 확장성 확보<br>
+      approximate 2nd-order: Hessian 역행렬 근사로 계산 비용 감소
+    </div>
+
+    <p><strong>극단적 양자화에서의 성능</strong></p>
+    <p>주로 3~4bit를 목표로 하지만, 2bit 또는 3진(ternary) 양자화에서도 합리적인 정확도를 유지한다는 점을 보였다.</p>
+
+    <table>
+      <tr><th>항목</th><th>수치</th></tr>
+      <tr><td>175B 모델 양자화 시간</td><td>약 4 GPU 시간</td></tr>
+      <tr><td>양자화 비트폭</td><td>3~4bit (2bit/ternary도 가능)</td></tr>
+      <tr><td>A100 GPU Speedup (FP16 대비)</td><td>약 3.25배</td></tr>
+      <tr><td>A6000 GPU Speedup (FP16 대비)</td><td>4.5배</td></tr>
+      <tr><td>이전 one-shot 방법 대비 압축 이득</td><td>2배 이상 향상</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <div class="figure-placeholder"><span>[ ]</span>arXiv:2210.17323 — HTML 버전 미제공 (논문 PDF 참조)</div>
+    <p>레이어별로 순차 양자화하면서 Hessian 기반 오류 보정을 수행하는 GPTQ 알고리즘의 개념도.</p>
+  </div>
+</section>
+
+<hr class="divider">
+<div class="section-group-title">그룹 4 — 경고: 압축이 agent 성능을 보장하지 않는다</div>
+
+<!-- ===== PAPER 15 ===== -->
+<section class="paper" id="p15">
+  <span class="category-label">Empirical Evaluation · Agent Benchmark</span>
+  <h2>Can Compressed LLMs Truly Act? An Empirical Evaluation of Agentic Capabilities in LLM Compression</h2>
+  <div class="paper-meta">
+    Peijie Dong et al. &nbsp;·&nbsp; arXiv:2505.19433 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/html/2505.19433v1" target="_blank">arxiv.org/html/2505.19433v1</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>기존 LLM 압축 벤치마크들은 perplexity나 GLUE 정확도 같은 단일 턴, 정적 태스크에만 집중해왔다. 실제 에이전트 배포에 필요한 workflow 생성, tool use, 긴 문맥 이해, 실제 환경 적용 능력은 평가하지 않았다.</p>
+    <p>이 논문은 <strong>ACBench(Agent Compression Benchmark)</strong>를 제안한다. 4가지 에이전트 능력(action execution, workflow generation, long-context understanding, real-world application)에 걸친 12개 태스크, 15개 모델, quantization(GPTQ, AWQ)과 pruning(Wanda, SparseGPT)을 포괄하는 최초의 agent 중심 압축 벤치마크다.</p>
+    <div class="warn-block">
+      <div class="label">핵심 경고</div>
+      <strong>reasoning model로 KD된 DeepSeek-R1-Distilled Qwen2.5-7B는 tool use 정확도가 70% → 43.6%로 급락했다.</strong><br>
+      일반 reasoning 성능이 좋아진 모델이 agent 시나리오에서는 오히려 더 나빠질 수 있다.
+    </div>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>평가한 압축 방법</strong></p>
+    <ul>
+      <li><strong>Quantization:</strong> GPTQ, AWQ, SmoothQuant</li>
+      <li><strong>Pruning:</strong> Magnitude, Wanda, SparseGPT (비구조적 + 2:4 구조적 모두)</li>
+      <li><strong>KD:</strong> DeepSeek-R1-Distill 시리즈 (Qwen2.5-7B, LLaMA 기반)</li>
+    </ul>
+
+    <p><strong>KD가 agent에서 실패하는 두 가지 이유</strong></p>
+    <ul>
+      <li><strong>교사 모델의 한계:</strong> DeepSeek-R1 teacher 모델이 학습 시 tool use, 실제 작업 실행 같은 강력한 에이전트 능력을 충분히 갖추지 않았다. 이 능력은 distillation으로 전달될 수 없다.</li>
+      <li><strong>용량 trade-off:</strong> 소형 모델의 제한된 파라미터 공간에서 수학적 추론 같은 핵심 능력을 보존하려면 function calling, tool manipulation 같은 에이전트 능력 보존은 뒤로 밀린다.</li>
+    </ul>
+
+    <p><strong>주요 실험 결과</strong></p>
+    <table>
+      <tr><th>압축 방법</th><th>Tool Use</th><th>Workflow</th><th>Real-world App</th></tr>
+      <tr><td>4-bit quantization (GPTQ/AWQ)</td><td>1~3% 저하</td><td>1~3% 저하</td><td>10~15% 저하</td></tr>
+      <tr><td>Pruning (Wanda 2:4)</td><td>quantization과 유사</td><td>5% 마진 내</td><td>—</td></tr>
+      <tr><td>KD (DS-R1-Distill-Qwen2.5-7B)</td><td><strong>70% → 43.6%</strong></td><td>—</td><td>PDDL: 33% → 1%</td></tr>
+    </table>
+
+    <p><strong>추가 발견: JSON 출력 품질 저하</strong></p>
+    <p>압축 후 string 형식 출력보다 JSON 구조화 출력에서 성능 저하가 일관되게 더 심각했다. Agent workflow에서 structured output(JSON)에 의존하는 시스템은 압축 후 반드시 JSON validity를 별도로 검증해야 한다.</p>
+
+    <p><strong>권고사항</strong></p>
+    <ul>
+      <li>tool use 능력 유지에는 <strong>quantization(GPTQ, AWQ)</strong>이 pruning보다 효과적이다.</li>
+      <li>hardware support가 있으면 <strong>GPTQ 4-bit 또는 FP8</strong>을 사용하라.</li>
+      <li>sparsification이 필요하면 <strong>Wanda with 2:4 sparsity</strong>가 최적 trade-off다.</li>
+      <li>OS, Webshop 같은 구조화 도메인 workflow에는 <strong>GPTQ(INT8), AWQ(INT4)</strong>를 권장한다.</li>
+      <li>reasoning KD 모델을 agent에 직접 사용하기 전에 반드시 <strong>agent-level benchmark</strong>로 검증하라.</li>
+    </ul>
+
+    <p><strong>세 가지 새로운 분석 지표</strong></p>
+    <ul>
+      <li><strong>ERank (Efficient Rank):</strong> 모델 logit 분포의 구조 변화를 rank 기반으로 측정</li>
+      <li><strong>Top-k Ranking Correlation:</strong> 압축 전후 상위 k개 logit의 순위 일치도</li>
+      <li><strong>Energy-based Analysis:</strong> logit energy 분포의 이동을 측정 (OOD 탐지 기법 응용)</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2505.19433v2/extracted/6501771/figs/main_figure_v2.png" alt="ACBench - agent compression benchmark overview" onerror="this.style.display='none';document.getElementById('fb-p15a').style.display='block'">
+    <div id="fb-p15a" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <img src="https://arxiv.org/html/2505.19433v2/extracted/6501771/figs/radar_distill_deepseek.png" alt="ACBench - DeepSeek-R1 distilled model radar chart" style="margin-top:12px" onerror="this.style.display='none';document.getElementById('fb-p15b').style.display='block'">
+    <div id="fb-p15b" class="figure-placeholder" style="display:none;margin-top:12px"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: ACBench 전체 평가 구조 — 4가지 agent 능력(tool use, workflow, long-context, real-world)에 걸친 15개 모델의 압축 방법별 성능 비교. / 하단: DeepSeek-R1-Distilled 모델 대비 원본 모델의 agent 능력 레이더 차트. KD가 real-world application 능력을 크게 저하시킴을 보여준다. (출처: arXiv:2505.19433v2)</p>
+  </div>
+</section>
+
+
+<hr class="divider">
+<div class="section-group-title">그룹 5 — Agent 시스템 특유의 경량화: 기존 LLM 경량화와의 차이</div>
+
+<!-- ===== CROSS-REF: already in doc ===== -->
+<section class="paper" id="xref1">
+  <span class="category-label" style="background:#888">이미 등장한 논문 — 핵심 시사점 재정리</span>
+  <h2>이 그룹의 맥락: 기존 LLM 경량화 vs Agent 시스템 경량화</h2>
+  <div class="summary">
+    <p>이 그룹에서는 기존 LLM 경량화 관점(PPL, MMLU, benchmark accuracy 중심)과 agent 시스템 관점(tool-call accuracy, schema validity, trajectory cost, multi-turn success 중심)이 왜 다른지를 다루는 논문들을 정리한다.</p>
+    <p>아래 세 논문은 이 문서 앞 섹션에서 이미 상세히 다뤄졌다. 여기서는 "agent 시스템 특유의 경량화" 맥락에서의 핵심 시사점만 간결하게 재정리한다.</p>
+    <div class="block">
+      <div class="label">Can Compressed LLMs Truly Act? → <a href="#p15">본문 섹션 15</a> 참조</div>
+      기존 PPL/GLUE 기준 압축 평가는 agent의 tool-use, workflow generation, real-world application 능력을 보지 못한다. ACBench 실험에서 reasoning KD 모델(DeepSeek-R1-Distill Qwen2.5-7B)이 tool use 정확도 70% → 43.6%로 급락했으며, 4-bit quantization이 real-world application에서 10~15% 하락에 그치는 데 반해 KD는 PDDL 진척률 33% → 1%까지 붕괴됐다. <strong>결론: agent 경량화는 agent-level benchmark로 별도 검증해야 한다.</strong>
+    </div>
+    <div class="block">
+      <div class="label">Distilling LLM Agent into Small Models → <a href="#p1">본문 섹션 1</a> 참조</div>
+      CoT (최종 답변) 만 distill하면 rare factual knowledge나 precise computation 상황에서 hallucination이 발생한다. Agent KD는 reason → tool call → observation 전체 trajectory를 distill해야 한다.
+    </div>
+    <div class="block">
+      <div class="label">Structured Agent Distillation → <a href="#p2">본문 섹션 2</a> 참조</div>
+      ReAct-style agent에서 token-level KD는 [REASON] span과 [ACT] span을 구별하지 않아 부족하다. span-level alignment가 agent 압축 품질을 결정한다.
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAPER 16: AgentDiet ===== -->
+<section class="paper" id="p16">
+  <span class="category-label">Agent Cost · Trajectory Reduction</span>
+  <h2>Reducing Cost of LLM Agents with Trajectory Reduction (AgentDiet)</h2>
+  <div class="paper-meta">
+    Yuan-An Xiao et al. &nbsp;·&nbsp; arXiv:2509.23586 &nbsp;·&nbsp; FSE 2026 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2509.23586" target="_blank">arxiv.org/abs/2509.23586</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>LLM 기반 multi-turn agent 시스템은 소프트웨어 엔지니어링 작업에서 뛰어난 효과를 보이지만, 턴이 거듭될수록 이전 action, observation, tool result가 누적되어 context(trajectory)가 계속 길어진다. 이 누적 trajectory가 생성하는 <strong>입력 토큰 연산 비용</strong>은 기존 LLM 단일 호출과는 질적으로 다른 비용 구조를 만든다. 그러나 기존 연구와 상용 에이전트 제품은 이 효율성 문제를 대체로 간과해왔다.</p>
+    <p>이 논문은 기존 agent trajectory를 분석해 <strong>useless(쓸모없는), redundant(중복된), expired(만료된)</strong> 정보가 광범위하게 퍼져 있음을 확인하고, 이를 실행 중에 자동으로 제거하는 inference-time trajectory reduction 방법인 <strong>AgentDiet</strong>을 제안한다.</p>
+    <p>top-performing coding agent에 구현하여 2개 LLM, 2개 벤치마크에서 실험한 결과, 에이전트 성능을 유지하면서 입력 토큰을 39.9~59.7%, 전체 연산 비용을 21.1~35.9% 줄였다. FSE 2026에 채택됐다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>왜 agent의 비용 구조가 일반 LLM과 다른가</strong></p>
+    <p>일반 LLM 호출은 하나의 prompt와 output 비용으로 끝난다. 반면 multi-turn agent는 매 step마다 이전 모든 trajectory(action history, observation, tool result)를 context에 누적해 전달한다. 10 step짜리 coding task에서 마지막 step의 input token은 처음 step보다 훨씬 많을 수 있다. 이것이 agent 비용의 주요 원천이다.</p>
+
+    <div class="block">
+      <div class="label">Trajectory waste의 세 종류</div>
+      <strong>Useless:</strong> 현재 task 목표와 무관한 정보 (verbose log output, irrelevant output 등)<br>
+      <strong>Redundant:</strong> 이미 앞 step에서 처리된 정보가 반복 등장<br>
+      <strong>Expired:</strong> 이전 step에서는 필요했으나 현재 목표 달성에 더 이상 필요 없는 상태 정보
+    </div>
+
+    <p><strong>AgentDiet의 동작 방식</strong></p>
+    <p>에이전트가 실행되는 도중(inference-time)에 각 step의 trajectory 내에서 위 세 종류의 waste를 식별하고 자동으로 제거한다. 별도의 모델 학습이나 재훈련 없이 동작하는 inference-time 접근이다. 논문 abstract는 "simple yet effective trajectory reduction approach"로만 서술하며, sliding-window 기반 reflection module의 설계 세부사항은 본문 확인 필요 [Needs verification].</p>
+
+    <p><strong>기존 LLM 경량화와의 차이</strong></p>
+    <table>
+      <tr><th>구분</th><th>기존 LLM 경량화</th><th>AgentDiet</th></tr>
+      <tr><td>비용 감소 위치</td><td>모델 파라미터 수, weight precision</td><td>입력 context(trajectory) 길이</td></tr>
+      <tr><td>적용 시점</td><td>모델 학습/배포 전</td><td>에이전트 실행 중 (inference-time)</td></tr>
+      <tr><td>학습 필요 여부</td><td>있음 (QLoRA, KD 등)</td><td>없음</td></tr>
+    </table>
+
+    <table>
+      <tr><th>결과 항목</th><th>수치</th></tr>
+      <tr><td>입력 토큰 감소율</td><td>39.9%~59.7%</td></tr>
+      <tr><td>전체 연산 비용 감소율</td><td>21.1%~35.9%</td></tr>
+      <tr><td>에이전트 성능 변화</td><td>유지 (동일)</td></tr>
+      <tr><td>학회</td><td>FSE 2026</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2509.23586v2/x1.png" alt="AgentDiet - LLM agent workflow overview" onerror="this.style.display='none';document.getElementById('fb-p16a').style.display='block'">
+    <div id="fb-p16a" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <img src="https://arxiv.org/html/2509.23586v2/x3.png" alt="AgentDiet reflection module design" style="margin-top:12px" onerror="this.style.display='none';document.getElementById('fb-p16b').style.display='block'">
+    <div id="fb-p16b" class="figure-placeholder" style="display:none;margin-top:12px"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: LLM agent의 전형적인 multi-turn 실행 구조 — trajectory가 step마다 누적되는 과정. / Figure 3: AgentDiet의 useless/redundant/expired 정보 탐지·제거 구조 (sliding-window 등 모듈 설계 세부사항은 논문 본문 확인 필요 [Needs verification]). (출처: arXiv:2509.23586v2)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 17: ACON ===== -->
+<section class="paper" id="p17">
+  <span class="category-label">Agent Cost · Context Compression</span>
+  <h2>ACON: Optimizing Context Compression for Long-horizon LLM Agents</h2>
+  <div class="paper-meta">
+    Minki Kang et al. &nbsp;·&nbsp; arXiv:2510.00615 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2510.00615" target="_blank">arxiv.org/abs/2510.00615</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>long-horizon agent 작업은 action history와 environment observation이 계속 쌓이는 구조적 특성 때문에 context가 무한히 늘어난다. 기존 context compression 연구는 단일 단계 작업이나 특정 응용 분야에만 초점을 맞추어 agent의 이 문제를 다루지 못했다.</p>
+    <p>ACON(Agent Context Optimization)은 observation과 interaction history 양쪽을 concise하고 task-relevant한 형태로 압축하는 통합 프레임워크다. 핵심은 <strong>자연어 공간에서 압축 가이드라인을 자동 최적화</strong>하는 것으로, "full context로는 성공하지만 compressed context로는 실패하는" trajectory pair를 수집해 LLM이 실패 원인을 분석하고 그 피드백으로 압축 가이드라인을 업데이트한다.</p>
+    <p>AppWorld, OfficeBench, Multi-objective QA에서 peak token 기준 메모리를 26~54% 줄이면서 task 성능을 대부분 유지하고, 압축 LLM을 소형 모델로 distill했을 때도 정확도의 95% 이상을 보존했다. 소형 LM을 long-horizon agent로 사용할 때 최대 46% 성능 향상도 달성했다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>일반 context compression과 agent context compression의 차이</strong></p>
+    <p>일반 text compression은 의미를 보존하면서 길이를 줄이는 것이 목표다. agent context compression은 여기에 더해 <strong>task success에 필요한 상태 정보(현재 goal, 이전 실패 원인, 필요한 tool result 등)를 반드시 보존</strong>해야 한다. 단순 요약으로는 agent가 잃어버리면 안 되는 정보를 버릴 수 있다.</p>
+
+    <div class="block">
+      <div class="label">ACON의 핵심 루프</div>
+      1. 전체 context → 압축 → compressed context로 agent 실행<br>
+      2. full context 성공 + compressed context 실패인 trajectory pair 수집<br>
+      3. capable LLM이 실패 원인 분석 → 압축 가이드라인 업데이트<br>
+      4. 반복 → 가이드라인 수렴
+    </div>
+
+    <p><strong>소형 모델 distillation</strong></p>
+    <p>최적화된 LLM compressor를 그대로 사용하면 추가 모듈 overhead가 발생한다. 이를 줄이기 위해 최적화된 압축 LLM을 소형 compressor 모델로 distill한다. distill 후에도 정확도의 95% 이상이 유지된다는 점이 핵심이다.</p>
+
+    <table>
+      <tr><th>항목</th><th>수치</th></tr>
+      <tr><td>메모리 감소 (peak tokens)</td><td>26~54%</td></tr>
+      <tr><td>소형 compressor distill 후 정확도 유지</td><td>over 95%</td></tr>
+      <tr><td>소형 LM agent 성능 향상</td><td>최대 46%</td></tr>
+      <tr><td>벤치마크</td><td>AppWorld, OfficeBench, Multi-objective QA</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2510.00615v2/x2.png" alt="ACON - motivation: unbounded context growth" onerror="this.style.display='none';document.getElementById('fb-p17a').style.display='block'">
+    <div id="fb-p17a" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <img src="https://arxiv.org/html/2510.00615v2/x3.png" alt="ACON - compression guideline optimization" style="margin-top:12px" onerror="this.style.display='none';document.getElementById('fb-p17b').style.display='block'">
+    <div id="fb-p17b" class="figure-placeholder" style="display:none;margin-top:12px"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 2: long-horizon agent에서 context가 무한히 늘어나는 동기와 ACON이 peak token을 줄이는 효과. / Figure 3: 실패 trajectory 분석을 통한 압축 가이드라인 자동 최적화 과정. (출처: arXiv:2510.00615v2)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 18: Less is More ===== -->
+<section class="paper" id="p18">
+  <span class="category-label">Agent Cost · Tool Selection · Edge</span>
+  <h2>Less is More: Optimizing Function Calling for LLM Execution on Edge Devices</h2>
+  <div class="paper-meta">
+    Varatheepan Paramanayakam et al. &nbsp;·&nbsp; arXiv:2411.15399 &nbsp;·&nbsp; DATE 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2411.15399" target="_blank">arxiv.org/abs/2411.15399</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>edge device에서 function-calling agent를 실행할 때 LLM이 너무 많은 tool 목록을 받으면 세 가지 문제가 발생한다: 낮은 task-completion accuracy, 지연 증가, 높은 전력 소비. 현재 LLM들은 edge에서 복잡한 입력이나 다수의 tool을 동시에 효과적으로 관리하지 못한다.</p>
+    <p>이 논문은 fine-tuning 없이 LLM에 제공하는 <strong>tool 후보 수를 동적으로 줄이는</strong> Less-is-More 프레임워크를 제안한다. 핵심 통찰은 "tool 수를 선택적으로 줄이면 function-calling 성능, 실행 시간, 전력 효율이 동시에 향상된다"는 것이다.</p>
+    <p>BFCL, GeoEngine 벤치마크에서 edge hardware로 실험한 결과, agentic success rate가 향상되고 execution time을 최대 70%, power consumption을 최대 40% 줄였다. DATE 2025에 채택됐다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>왜 tool 수를 줄이면 성능이 올라가는가</strong></p>
+    <p>LLM이 매 step마다 전체 tool catalog를 input에 포함하면, (1) schema 텍스트가 input token의 큰 비율을 차지해 실제 쿼리에 집중할 context가 줄어들고, (2) 작은 모델일수록 무관한 tool들 사이에서 올바른 tool을 고르는 능력이 떨어진다. tool 수를 현재 요청에 관련된 것으로 줄이면 두 문제가 동시에 해소된다.</p>
+
+    <div class="block">
+      <div class="label">Less-is-More의 세 수준 tool 표현 구조</div>
+      Level 1 (개별 tool): 각 tool을 개별적으로 검색<br>
+      Level 2 (tool cluster): 의미상 유사한 tool들을 클러스터로 묶어 검색<br>
+      Level 3 (전체 tool set): 기존 방식 (모든 tool 제공)<br>
+      → 현재 쿼리에 맞는 level을 동적으로 선택해 LLM에 제공
+    </div>
+
+    <p><strong>기존 모델 경량화와의 관계</strong></p>
+    <p>이 논문의 접근은 모델 파라미터를 줄이는 게 아니라 <strong>모델이 처리해야 하는 action space(tool 후보)를 줄이는</strong> 방식이다. 소형 모델과 결합하면 시너지가 크다: 작은 모델은 tool이 많을 때 정확도가 특히 더 떨어지기 때문에, tool 수 축소가 소형 모델에서 더 큰 효과를 낸다.</p>
+
+    <table>
+      <tr><th>항목</th><th>수치</th></tr>
+      <tr><td>Execution time 감소</td><td>최대 70%</td></tr>
+      <tr><td>Power consumption 감소</td><td>최대 40%</td></tr>
+      <tr><td>Fine-tuning 필요 여부</td><td>없음</td></tr>
+      <tr><td>학회</td><td>DATE 2025</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2411.15399v1/x1.png" alt="Less-is-More framework - three levels of tool representation" onerror="this.style.display='none';document.getElementById('fb-p18').style.display='block'">
+    <div id="fb-p18" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: Less-is-More 프레임워크의 세 수준 tool 표현 구조. 개별 tool(Level 1), tool cluster(Level 2), 전체 tool set(Level 3)을 latent space embedding으로 구성해 현재 쿼리에 맞는 tool 집합을 동적으로 선택한다. (출처: arXiv:2411.15399v1)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 19: Small Models Big Tasks ===== -->
+<section class="paper" id="p19">
+  <span class="category-label">SLM · Function Calling · Empirical Study</span>
+  <h2>Small Models, Big Tasks: An Exploratory Empirical Study on Small Language Models for Function Calling</h2>
+  <div class="paper-meta">
+    arXiv:2504.19277 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2504.19277" target="_blank">arxiv.org/abs/2504.19277</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>function calling은 올바른 인수를 식별해야 하는 복잡한 작업이다. LLM은 이를 잘 수행하지만 연산 비용이 너무 높다. 소형 언어 모델(SLM)은 edge device에 적합하게 빠르고 가볍지만, function calling에서 실제로 얼마나 쓸 만한지에 대한 체계적인 평가가 부족하다.</p>
+    <p>이 논문은 zero-shot, few-shot, fine-tuning 세 조건에서, prompt injection 유무를 포함해 다양한 도메인의 function call 생성 능력을 평가하는 탐색적 경험 연구를 수행한다. edge device에서의 latency와 memory usage도 함께 측정한다.</p>
+    <p>결과: fine-tuning이 가장 좋지만, <strong>SLM은 output format(JSON schema, argument validity)을 지키는 데 상당히 고전</strong>한다는 한계가 발견됐다. prompt injection에는 대체로 강건하다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>Format adherence가 function calling의 병목</strong></p>
+    <p>SLM이 틀린 tool을 고르는 것보다, 올바른 tool을 골랐지만 argument 형식(JSON key 이름, 데이터 타입, required field 누락 등)을 맞추지 못해 실패하는 경우가 많다는 것이 이 논문의 핵심 발견이다. "문장은 그럴듯하게 보이는데 agent 시스템이 파싱 실패"하는 현상의 원인이다.</p>
+
+    <div class="block">
+      <div class="label">세 가지 평가 조건 비교</div>
+      <strong>Zero-shot:</strong> tool schema만 제공, 예시 없음<br>
+      <strong>Few-shot:</strong> tool schema + 예시 몇 개 제공<br>
+      <strong>Fine-tuning:</strong> function call 데이터로 학습 → 가장 좋은 성능<br>
+      → 차이: fine-tuning이 output format adherence를 가장 잘 학습시킴
+    </div>
+
+    <p><strong>agent 경량화에서의 시사점</strong></p>
+    <p>소형 모델을 agent에 배포할 때 일반 언어 품질(PPL, MMLU 등)이 아닌 <strong>schema validity rate, argument completeness, executable call rate</strong>를 별도로 측정해야 한다. fine-tuning 없이 SLM을 agent에 투입하면 format failure가 주요 실패 원인이 된다.</p>
+
+    <table>
+      <tr><th>조건</th><th>성능</th></tr>
+      <tr><td>Fine-tuning</td><td>가장 높음</td></tr>
+      <tr><td>Few-shot</td><td>zero-shot 대비 개선</td></tr>
+      <tr><td>Zero-shot</td><td>가장 낮음</td></tr>
+      <tr><td>Prompt injection 강건성</td><td>전반적으로 강건, 성능 소폭 하락</td></tr>
+      <tr><td>Output format 준수</td><td><strong>상당히 고전 (struggle significantly)</strong></td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2504.19277v1/x1.png" alt="Small Models Big Tasks - study design overview" onerror="this.style.display='none';document.getElementById('fb-p19').style.display='block'">
+    <div id="fb-p19" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: 연구 설계 전체 구조 — zero-shot/few-shot/fine-tuning 조건, 도메인, edge device latency/memory 측정을 포함하는 방법론 개요. (출처: arXiv:2504.19277v1)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 20: In-Vehicle ===== -->
+<section class="paper" id="p20">
+  <span class="category-label">SLM · Edge Deployment · Compression + Fine-tuning</span>
+  <h2>Optimizing Small Language Models for In-Vehicle Function-Calling</h2>
+  <div class="paper-meta">
+    Yahya Sowti Khiabani et al. &nbsp;·&nbsp; arXiv:2501.02342 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2501.02342" target="_blank">arxiv.org/abs/2501.02342</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>기존 규칙 기반 차량 제어 시스템을 대체해 SLM을 edge device(차량 head unit)에서 function-calling agent로 배포하는 문제를 다룬다. 차량 내부의 엄격한 hardware 제약 하에서 acceptable performance를 유지하면서 모델을 동작시켜야 한다.</p>
+    <p>Microsoft Phi-3 mini를 대상으로 <strong>structured pruning → healing → quantization → task-specific fine-tuning → vehicle integration</strong>의 전체 파이프라인을 제안한다. 최대 20억 파라미터를 제거하면서도 복잡한 in-vehicle task 처리 능력을 보존했고, 하드웨어 가속 없이 11 tokens/sec generation speed를 달성해 실시간 on-device inference를 실현했다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>agent 시스템에서 compression + fine-tuning의 조합</strong></p>
+    <p>이 논문은 compression(pruning + quantization)만으로 끝나지 않고, 반드시 <strong>task-specific fine-tuning</strong>이 뒤따라야 함을 보여준다. 압축 후 모델이 in-vehicle function call의 특수한 tool schema와 argument 형식을 학습하지 않으면 실제 시스템에서 동작하지 않는다.</p>
+
+    <div class="block">
+      <div class="label">전체 배포 파이프라인</div>
+      1. Structured pruning: Phi-3 mini에서 최적 pruning block 식별 (heatmap 기반)<br>
+      2. Healing: pruning 후 성능 회복을 위한 short fine-tuning<br>
+      3. Quantization: 메모리 및 추론 속도 최적화<br>
+      4. Task-specific fine-tuning: 차량 function call 데이터로 정렬<br>
+      5. Vehicle integration: lightweight runtime, 실시간 추론 검증
+    </div>
+
+    <p><strong>일반 LLM 경량화와의 차이</strong></p>
+    <p>일반 LLM 경량화는 보통 압축 후 벤치마크(MMLU, PPL 등) 점수를 보고 끝난다. 이 논문은 그 이후에 실제 vehicle integration까지의 전 과정을 다룬다. 압축된 모델이 실제 차량 ECU/API와 상호작용할 때의 function call accuracy와 11 tokens/sec 실시간성을 검증하는 것이 핵심이다.</p>
+
+    <table>
+      <tr><th>항목</th><th>수치</th></tr>
+      <tr><td>제거된 파라미터</td><td>최대 20억 (2B)</td></tr>
+      <tr><td>추론 속도 (HW 가속 없음)</td><td>11 tokens/sec</td></tr>
+      <tr><td>기반 모델</td><td>Microsoft Phi-3 mini</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2501.02342v1/extracted/6111067/figures/E2E-arch.png" alt="In-Vehicle SLM - end-to-end deployment framework" onerror="this.style.display='none';document.getElementById('fb-p20').style.display='block'">
+    <div id="fb-p20" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: in-vehicle function-calling SLM 배포 전체 프레임워크 — pruning(빨강), healing(초록), function-calling alignment(파랑)의 세 단계 파이프라인. (출처: arXiv:2501.02342v1)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 21: TinyLLM ===== -->
+<section class="paper" id="p21">
+  <span class="category-label">SLM · Agentic Tasks · Hybrid Optimization</span>
+  <h2>TinyLLM: Evaluation and Optimization of Small Language Models for Agentic Tasks on Edge Devices</h2>
+  <div class="paper-meta">
+    arXiv:2511.22138 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2511.22138" target="_blank">arxiv.org/abs/2511.22138</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>cloud 인프라 없이 privacy를 보호하고 latency를 낮추는 자율 에이전트를 위해 edge device에서 SLM을 실행하는 연구다. function/tool/API calling을 중심으로 SLM을 평가하고, SFT, PEFT, RL 기반 최적화, DPO, hybrid optimization을 포괄적으로 비교한다.</p>
+    <p>Berkeley Function Calling Leaderboard(BFCL)로 TinyAgent, TinyLlama, Qwen, xLAM 등을 평가한 결과, 1B 미만 ultra-compact 모델은 복잡한 agentic task에서 성능이 현저히 떨어지고, <strong>1~3B 중간 크기 모델이 훨씬 낫다</strong>는 것을 확인했다. Hybrid optimization(SFT + DPO)으로 전체 정확도 65.74%, multi-turn 정확도 55.62%를 달성했다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>DPO training pipeline for agentic tasks</strong></p>
+    <p>AgentBank 데이터(ALFRED 등)를 기반으로 SFT 데이터를 구성하고, TinyLlama의 응답을 rejected output으로 사용해 chosen-rejected pair를 만들어 DPO 학습을 수행한다. 즉 "더 작은 모델의 출력이 rejected, 더 좋은 모델의 출력이 chosen"이라는 pair를 자동으로 생성하는 pipeline이다.</p>
+
+    <div class="block">
+      <div class="label">최적화 전략 비교</div>
+      <strong>SFT:</strong> function call 데이터로 직접 학습<br>
+      <strong>PEFT (LoRA 등):</strong> 파라미터 효율적 fine-tuning<br>
+      <strong>RL-based:</strong> 함수 호출 정답 여부를 reward로 학습<br>
+      <strong>DPO:</strong> chosen/rejected pair로 preference 학습<br>
+      <strong>Hybrid:</strong> SFT + DPO 결합 → 가장 높은 multi-turn 정확도
+    </div>
+
+    <p><strong>모델 크기와 agentic 성능의 관계</strong></p>
+    <p>1B 미만 모델은 agentic task에서 성능이 대폭 낮다. 이는 언어 능력 일반(PPL 등)에서는 1B 미만 모델도 그럭저럭 동작하지만, function call format, argument validity, multi-turn state tracking은 최소한의 파라미터 임계치가 있음을 시사한다.</p>
+
+    <table>
+      <tr><th>항목</th><th>수치</th></tr>
+      <tr><td>Hybrid optimization 전체 정확도</td><td>65.74%</td></tr>
+      <tr><td>Multi-turn 정확도</td><td>55.62%</td></tr>
+      <tr><td>1B 미만 vs 1~3B 성능 차이</td><td>1~3B가 압도적</td></tr>
+      <tr><td>벤치마크</td><td>BFCL (Berkeley Function Calling Leaderboard)</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2511.22138v1/ProposedPipelineOfTinyLLM.png" alt="TinyLLM - proposed 4-stage pipeline" onerror="this.style.display='none';document.getElementById('fb-p21a').style.display='block'">
+    <div id="fb-p21a" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <img src="https://arxiv.org/html/2511.22138v1/DPORainingPipeline.png" alt="TinyLLM - DPO training pipeline" style="margin-top:12px" onerror="this.style.display='none';document.getElementById('fb-p21b').style.display='block'">
+    <div id="fb-p21b" class="figure-placeholder" style="display:none;margin-top:12px"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: TinyLLM 4단계 파이프라인 — 데이터 처리, 모델 선택, fine-tuning 기법, 평가. / Figure 3: DPO 학습 파이프라인 — AgentBank SFT 데이터를 chosen-rejected pair로 변환하는 과정. (출처: arXiv:2511.22138v1)</p>
+  </div>
+</section>
+
+<hr class="divider">
+<div class="section-group-title">그룹 6 — Position / Survey: SLM-first agent 아키텍처</div>
+
+<!-- ===== PAPER 22: Small LMs Future ===== -->
+<section class="paper" id="p22">
+  <span class="category-label">Position Paper · SLM-first</span>
+  <h2>Small Language Models are the Future of Agentic AI</h2>
+  <div class="paper-meta">
+    Peter Belcak et al. (NVIDIA) &nbsp;·&nbsp; arXiv:2506.02153 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2506.02153" target="_blank">arxiv.org/abs/2506.02153</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>이 논문은 실험 결과 중심의 연구 논문이 아니라 <strong>position paper</strong>다. agent AI 시스템의 구조적 특성을 분석하고, 왜 SLM이 agent 시스템의 많은 호출에서 더 적합한지를 논증한다.</p>
+    <p>핵심 테제: agent 시스템은 "소수의 특화된 작업을 반복적으로, 거의 변형 없이 수행"하는 형태가 많다. 이런 작업에서 LLM의 범용 대화 능력은 필요하지 않으며, SLM이 더 강력하고(sufficiently powerful), 본질적으로 더 적합하며(inherently more suitable), 경제적으로 더 유리하다(necessarily more economical).</p>
+    <p>범용 대화 능력이 필수인 경우에는 heterogeneous agentic system(여러 모델을 호출하는 구조)이 자연스러운 해답이며, LLM-to-SLM agent conversion algorithm을 제안한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>LLM-to-SLM agent conversion algorithm</strong></p>
+    <p>현재 LLM으로 운영 중인 agent workflow를 SLM으로 전환하는 일반적 절차를 제안한다. 이는 단순히 모델을 교체하는 게 아니라, 각 LLM 호출 지점을 분석해 (1) SLM으로 대체 가능한 호출과 (2) LLM 유지가 필요한 호출을 구분하고, 전자를 SLM으로 교체하는 체계적 방법론이다.</p>
+
+    <div class="block">
+      <div class="label">SLM이 유리한 agent 호출 유형</div>
+      - 고정된 schema 안에서 structured output 생성 (JSON, function call)<br>
+      - 반복적이고 변형이 적은 분류/라우팅 판단<br>
+      - 특정 tool catalog 내에서의 tool 선택<br>
+      - 사전 정의된 category tree에서의 매핑
+    </div>
+
+    <div class="block">
+      <div class="label">LLM fallback이 여전히 필요한 경우</div>
+      - 개방형 추론 (open-domain reasoning)<br>
+      - 새로운 category 생성, 예외 처리<br>
+      - 불확실한 병합, 충돌하는 선호 해석<br>
+      - 범용 대화 능력이 필수인 사용자 상호작용
+    </div>
+
+    <p><strong>경제적 의미</strong></p>
+    <p>LLM에서 SLM으로의 부분적 전환만으로도 AI agent 산업 전반의 운영/경제적 영향이 엄청날 것이라고 논문은 강조한다. 동일 작업을 10~100배 낮은 토큰 비용으로 수행할 수 있기 때문이다.</p>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2506.02153v2/Both4.png" alt="Small LMs Future - agentic system modes" onerror="this.style.display='none';document.getElementById('fb-p22').style.display='block'">
+    <div id="fb-p22" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 1: 에이전트 시스템의 두 가지 agency 모드 — (좌) Language model agency: LLM이 HCI와 tool call orchestrator 역할을 동시에 수행. (우) Code agency: 전용 controller code가 모든 상호작용을 orchestrate하고 LLM은 선택적으로 HCI 역할만 담당. (출처: arXiv:2506.02153v2)</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 23: Small LMs Survey ===== -->
+<section class="paper" id="p23">
+  <span class="category-label">Survey · SLM-default Architecture · Engineering Metrics</span>
+  <h2>Small Language Models for Agentic Systems: A Survey of Architectures, Capabilities, and Deployment Trade-offs</h2>
+  <div class="paper-meta">
+    Raghav Sharma, Manan Mehta &nbsp;·&nbsp; arXiv:2510.03847 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2510.03847" target="_blank">arxiv.org/abs/2510.03847</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>이 survey는 agent workload의 목적이 <strong>schema- and API-constrained accuracy</strong>(개방형 생성이 아님)일 때, 1~12B (때로는 20B까지) 크기의 SLM이 충분하고 LLM보다 우수한 경우가 많다는 것을 종합적으로 논증한다.</p>
+    <p>Phi-4-Mini, Qwen-2.5-7B, Gemma-2-9B, Llama-3.2-1B/3B, Ministral-3B/8B, Apple on-device 3B, DeepSeek-R1-Distill 등 최신 SLM과 BFCL v3/v4, StableToolBench 벤치마크, vLLM/SGLang/TensorRT-LLM/XGrammar/Outlines 서빙 스택을 총망라한다.</p>
+    <p>SLM-default + LLM-fallback 구조를 공식화하고, 기존 LLM 평가 지표와 다른 <strong>agent 전용 engineering metric</strong>들을 제안한다. guided decoding과 strict JSON Schema output이 tool use capability gap을 크게 좁히며, SLM이 10x~100x 낮은 토큰 비용으로 LLM과 동등하거나 더 나은 성능을 낼 수 있음을 보인다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>SLM-default + LLM-fallback 아키텍처</strong></p>
+    <p>기본적으로 SLM을 사용하고 불확실한 경우에만 LLM으로 넘기는 구조를 공식화한다. uncertainty-aware routing과 verifier cascade를 통합해 신뢰할 수 있는 에이전트를 설계한다.</p>
+
+    <div class="block">
+      <div class="label">Agent 전용 Engineering Metric (기존 LLM 지표와 다름)</div>
+      <strong>Cost Per Successful Task (CPS):</strong> 성공한 작업 1건당 비용<br>
+      <strong>Schema Validity Rate:</strong> 생성된 output이 지정된 schema를 준수하는 비율<br>
+      <strong>Executable Call Rate:</strong> 실제로 실행 가능한 function call 비율<br>
+      <strong>p50/p95 Latency:</strong> 응답 지연 시간 분포<br>
+      <strong>Energy per Request:</strong> 요청당 에너지 소비
+    </div>
+
+    <p><strong>Guided decoding의 역할</strong></p>
+    <p>XGrammar, Outlines 같은 guided decoding 라이브러리를 사용하면 strict JSON Schema 출력을 강제할 수 있다. 이는 SLM의 format adherence 문제를 inference 레벨에서 해결하는 방식이다. SLM의 언어 생성 능력의 한계를 decoding 제약으로 보완하는 것이다.</p>
+
+    <p><strong>SLM 설계 패턴</strong></p>
+    <ul>
+      <li><strong>Schema-first prompting:</strong> tool schema 구조를 prompt에서 명시적으로 강조</li>
+      <li><strong>Type-safe function registry:</strong> 허용된 tool/argument 타입을 코드 레벨에서 검증</li>
+      <li><strong>Confidence scoring + verifier rollups:</strong> SLM output의 불확실도 측정 후 임계치 초과 시 LLM으로 escalation</li>
+      <li><strong>LoRA/QLoRA를 통한 경량 적응:</strong> domain-specific tool catalog에 맞춤화</li>
+    </ul>
+
+    <table>
+      <tr><th>항목</th><th>수치</th></tr>
+      <tr><td>SLM의 토큰 비용 (vs LLM)</td><td>10x~100x 낮음</td></tr>
+      <tr><td>대상 모델 크기 (agent 충분)</td><td>1~12B (때로는 20B)</td></tr>
+      <tr><td>LLM fallback 필요 영역</td><td>open-domain reasoning, long-horizon planning</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <div class="figure-placeholder"><span>[ ]</span>arXiv:2510.03847 — HTML 버전 미제공 (논문 PDF 참조)</div>
+    <p>SLM-default + LLM-fallback 아키텍처와 uncertainty-aware routing, verifier cascade 구조도. agent 전용 engineering metric(CPS, schema validity rate, executable call rate) 비교표.</p>
+  </div>
+</section>
+
+</main>
+
+
+<hr class="divider">
+<div class="section-group-title">그룹 7 — Agent Tuning 데이터 설계: 학습 데이터 구성 근거</div>
+
+<!-- ===== PAPER 24: AgentTuning ===== -->
+<section class="paper" id="p24">
+  <span class="category-label">Agent Tuning · Instruction Data</span>
+  <h2>AgentTuning: Enabling Generalized Agent Abilities for LLMs</h2>
+  <div class="paper-meta">
+    Aohan Zeng et al. (Tsinghua) &nbsp;·&nbsp; arXiv:2310.12823 &nbsp;·&nbsp; 2023 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2310.12823" target="_blank">arxiv.org/abs/2310.12823</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>오픈소스 LLM은 다양한 NLP 태스크에서는 뛰어나지만, agent 역할(planning, memorization, tool utilization)에서는 ChatGPT/GPT-4 같은 상용 모델에 비해 "far inferior"한 성능을 보인다. 기존 연구들은 특정 agent 태스크를 위해 프롬프트를 개선하는 데 집중했을 뿐, LLM 자체의 agent 능력을 일반적으로 향상시키면서 general ability를 유지하는 방법은 연구가 부족했다.</p>
+    <p>AgentTuning은 이 문제를 해결하기 위해 고품질 interaction trajectory를 담은 경량 instruction-tuning 데이터셋인 <strong>AgentInstruct</strong>를 구성하고, agent 데이터와 일반 instruction 데이터를 혼합하는 <strong>hybrid instruction-tuning</strong> 전략을 제안한다. Llama 2 계열에 적용해 AgentLM-7B/13B/70B를 만들었으며, AgentLM-70B는 학습 중 보지 않은 agent task에서 GPT-3.5-turbo와 comparable한 성능을 달성했다. General ability는 손상 없이 유지됐다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>왜 일반 instruction data만으로는 부족한가</strong></p>
+    <p>일반 NLP 태스크는 단일 turn input → output 형태가 많다. 반면 agent task는 환경 피드백을 받아 다음 action을 결정하는 multi-turn interaction 구조다. 이 trajectory 형태의 데이터가 없으면 모델이 agent 역할을 수행하는 방법을 학습하지 못한다.</p>
+
+    <div class="block">
+      <div class="label">Hybrid Instruction-Tuning 전략</div>
+      <strong>AgentInstruct:</strong> 고품질 interaction trajectory (agent task 데이터)<br>
+      <strong>+ General instruction data:</strong> 일반 도메인 오픈소스 instruction 데이터<br>
+      → 두 가지를 혼합하여 학습 → agent ability 향상 + general ability 유지
+    </div>
+
+    <p><strong>혼합이 필요한 이유</strong></p>
+    <p>agent data만으로 학습하면 모델이 agent 형식에 과적합되어 일반 언어 능력이 저하된다(catastrophic forgetting). general data를 섞으면 두 능력을 균형 있게 유지할 수 있다.</p>
+
+    <p><strong>네 프로젝트에서의 역할</strong></p>
+    <p>Qwen3-235B → 10B student 경량화에서 "왜 일반 SFT만으로는 부족한가"의 근거다. profile update trajectory(로그 분석 → signal 추출 → merge 판단 → action 결정)는 agent interaction trajectory이므로, agent instruction data 형태로 만들어야 한다. 또한 agent data 비율이 너무 높으면 일반 instruction-following 능력이 저하될 수 있으므로 혼합이 필요하다.</p>
+
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>데이터셋</td><td>AgentInstruct (interaction trajectory 중심)</td></tr>
+      <tr><td>학습 전략</td><td>hybrid: agent data + general instruction data</td></tr>
+      <tr><td>결과 모델</td><td>AgentLM-7B / 13B / 70B (Llama 2 기반)</td></tr>
+      <tr><td>AgentLM-70B 성능</td><td>unseen agent task에서 GPT-3.5-turbo와 comparable</td></tr>
+      <tr><td>General ability</td><td>손상 없이 유지 (without compromising)</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <div class="figure-placeholder"><span>[ ]</span>arXiv:2310.12823 — HTML 버전 미제공 (논문 PDF 참조)</div>
+    <p>AgentInstruct 데이터셋 구성 예시와 hybrid instruction-tuning 전략 개요. agent trajectory 형태와 일반 instruction 형태를 혼합하는 방식.</p>
+  </div>
+</section>
+
+<!-- ===== PAPER 25: Agent-FLAN ===== -->
+<section class="paper" id="p25">
+  <span class="category-label">Agent Tuning · Data Design · Negative Samples</span>
+  <h2>Agent-FLAN: Designing Data and Methods of Effective Agent Tuning for Large Language Models</h2>
+  <div class="paper-meta">
+    Zehui Chen et al. &nbsp;·&nbsp; arXiv:2403.12881 &nbsp;·&nbsp; 2024 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2403.12881" target="_blank">arxiv.org/abs/2403.12881</a>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>기존 agent training corpus에는 세 가지 구조적 문제가 있다. 첫째, <strong>format following과 agent reasoning이 얽혀 있어</strong>(entangled) 사전 학습 분포에서 크게 벗어난다. 둘째, LLM이 agent task에 필요한 여러 능력(retrieval, instruction following, reasoning, understanding)을 서로 <strong>다른 학습 속도</strong>로 습득한다. 셋째, 기존 접근 방식은 agent 능력을 향상시키는 과정에서 <strong>hallucination을 유발하는 부작용</strong>이 생긴다.</p>
+    <p>Agent-FLAN은 이 세 문제를 해결하기 위해 (1) training corpus를 능력별로 <strong>분해 및 재설계</strong>하고, (2) hallucination 억제를 위한 <strong>negative sample</strong>을 포괄적으로 구성한다. Llama2-7B에 적용해 다양한 agent 평가 데이터셋에서 기존 최고 성능 대비 <strong>3.5% 향상</strong>을 달성했고, 모델 크기를 늘릴수록 일관되게 성능이 향상됐으며 general ability도 소폭 개선됐다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>핵심 개념 및 방법론</h3>
+    <p><strong>문제 1: Format following과 reasoning의 entanglement</strong></p>
+    <p>기존 agent 학습 데이터는 "ReAct 형식으로 쓰는 방법"과 "어떤 tool을 왜 써야 하는지 추론"이 하나의 데이터에 뒤섞여 있다. 모델 입장에서는 format을 외워야 하는 학습과 reasoning을 해야 하는 학습이 동시에 일어나 혼선이 생긴다. Agent-FLAN은 자연 대화 형식으로 데이터를 정렬(align)해 pretraining 분포에서의 이탈을 줄인다.</p>
+
+    <div class="block">
+      <div class="label">능력별 학습 속도 차이 (논문 Figure 3 기준)</div>
+      <strong>Retrieval:</strong> 빠르게 수렴<br>
+      <strong>Instruction following:</strong> 중간 속도<br>
+      <strong>Reasoning:</strong> 느리게 수렴<br>
+      <strong>Understanding:</strong> 중간 속도<br>
+      → 하나의 데이터셋에 섞으면 빠른 능력이 먼저 과적합되고 느린 능력은 충분히 학습되지 않음
+    </div>
+
+    <p><strong>문제 3: Hallucination 억제를 위한 negative sample</strong></p>
+    <p>agent tuning 중 나타나는 두 종류의 hallucination을 식별한다.</p>
+    <ul>
+      <li><strong>Format hallucination:</strong> tool call 형식 자체를 잘못 생성 (잘못된 JSON key, 없는 argument 등)</li>
+      <li><strong>Action hallucination:</strong> 실행해서는 안 되는 action을 실행하거나, 근거 없는 tool을 호출</li>
+    </ul>
+    <p>이를 억제하기 위해 "이렇게 하면 안 된다"는 negative sample을 포괄적으로 구성하고 학습 데이터에 포함시킨다.</p>
+
+    <p><strong>네 프로젝트에서의 역할 (가장 직접적인 근거)</strong></p>
+    <p>profile agent의 step별 능력이 섞여 있는 문제와 그 해결 방향을 직접 지지한다.</p>
+
+    <table>
+      <tr><th>Profile Agent의 능력</th><th>Agent-FLAN에서의 대응 개념</th></tr>
+      <tr><td>JSON schema 준수</td><td>format following (빠르게 수렴, 별도 분리 학습 권장)</td></tr>
+      <tr><td>implicit/explicit signal 추출</td><td>retrieval + understanding</td></tr>
+      <tr><td>충돌 신호 해석</td><td>reasoning (느리게 수렴, 충분한 데이터 필요)</td></tr>
+      <tr><td>merge/update/skip 판단</td><td>agent reasoning</td></tr>
+      <tr><td>근거 없는 note 생성 방지</td><td>hallucination 억제 → negative sample 설계</td></tr>
+    </table>
+
+    <div class="warn-block">
+      <div class="label">적용 시 주의사항</div>
+      profile agent 학습 데이터를 하나의 SFT 데이터셋에 모두 섞으면, format following은 빠르게 과적합되고 reasoning 능력은 충분히 학습되지 않을 수 있다. Agent-FLAN의 decomposition 원칙에 따라 step별로 데이터를 분리해 학습 단계를 조정하거나, curriculum learning 방식을 고려해야 한다.
+    </div>
+
+    <table>
+      <tr><th>항목</th><th>수치</th></tr>
+      <tr><td>Llama2-7B 성능 향상 (vs prior best)</td><td>3.5%</td></tr>
+      <tr><td>Hallucination 억제 효과</td><td>greatly alleviates (원문)</td></tr>
+      <tr><td>모델 크기 scaling</td><td>7B → 70B 일관되게 향상</td></tr>
+      <tr><td>General ability</td><td>slightly enhancing (원문)</td></tr>
+    </table>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2403.12881v1/figures/multi_loss.png" alt="Agent-FLAN - capability-decomposed training loss curves" onerror="this.style.display='none';document.getElementById('fb-p25a').style.display='block'">
+    <div id="fb-p25a" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <img src="https://arxiv.org/html/2403.12881v1/figures/hallucination.png" alt="Agent-FLAN - two hallucination types" style="margin-top:12px" onerror="this.style.display='none';document.getElementById('fb-p25b').style.display='block'">
+    <div id="fb-p25b" class="figure-placeholder" style="display:none;margin-top:12px"><span>[ ]</span>이미지를 불러올 수 없습니다</div>
+    <p>Figure 3: retrieval / instruction following / reasoning / understanding 능력별 training loss 수렴 속도 비교 — 능력마다 학습 속도가 다름을 보여준다. / Figure 4: agent task에서 발생하는 두 종류의 hallucination(format hallucination, action hallucination) 유형 시각화. (출처: arXiv:2403.12881v1)</p>
+  </div>
+</section>
+
+<footer style="background:#1a1a2e; color:#a0b0c8; text-align:center; padding:28px; font-size:0.82rem; margin-top:40px;">
+  Agent LLM 경량화 논문 교육자료 — NotebookLM MCP 기반 생성 · 2026-05-29
+</footer>
+<script>
+(function(){
+  var main = document.querySelector('main');
+  if (!main) return;
+
+  // Logical order: overview first, then papers by phase
+  var order = [
+    'overview',
+    'p14','p12','p13','p7',        // Phase 1: General compression
+    'p8','p9','p11','p10',         // Phase 2: KD refinements
+    'p15',                          // Phase 3: THE GAP
+    'p24','p25',                    // Phase 4: Agent data design
+    'p3','p1','p2',                // Phase 5: Agent trajectory KD
+    'p18','p4','p6',               // Phase 6: Tool knowledge
+    'p16','p17',                    // Phase 7: System cost
+    'p19','p21','p20',             // Phase 8: Edge SLM
+    'p22','p23',                    // Phase 9: Architecture & survey
+    'p5'                            // Phase 10: Foundation model
+  ];
+
+  var phaseLabels = {
+    'p14': { label:'Phase 1 — 일반 LLM 경량화 기반 (2022–2024)', cls:'ph1' },
+    'p8':  { label:'Phase 2 — KD 목적 함수 정제 (2024)', cls:'ph2' },
+    'p15': { label:'Phase 3 — 핵심 발견: 일반 경량화 ≠ Agent 경량화  ⚠ PIVOT', cls:'ph3', highlight:true },
+    'p24': { label:'Phase 4 — Agent Tuning 데이터 설계 (2023–2024)', cls:'ph4' },
+    'p3':  { label:'Phase 5 — Agent Trajectory Distillation (2024–2025)', cls:'ph5' },
+    'p18': { label:'Phase 6 — Tool Knowledge 내재화 (2024–2026)', cls:'ph6' },
+    'p16': { label:'Phase 7 — Agent 시스템 비용 절감 (2025–2026)', cls:'ph7' },
+    'p19': { label:'Phase 8 — Edge SLM Agent 실증 (2025)', cls:'ph8' },
+    'p22': { label:'Phase 9 — SLM-first 아키텍처 & 평가 체계 (2025)', cls:'ph9' },
+    'p5':  { label:'Phase 10 — 다중 Agent 통합 Foundation Model (2025)', cls:'ph10' }
+  };
+
+  // Collect all section elements and other elements to remove
+  var allSections = {};
+  order.forEach(function(id){ var el=document.getElementById(id); if(el) allSections[id]=el; });
+
+  // Remove old group titles, dividers, xref section, and paper sections from main
+  var removeTargets = main.querySelectorAll('section, .section-group-title, hr.divider');
+  removeTargets.forEach(function(el){ el.parentNode && el.parentNode.removeChild(el); });
+
+  // Re-insert in logical order with new phase headers
+  var prevPhaseStart = null;
+  order.forEach(function(id, idx){
+    // Insert HR + phase label if this id starts a new phase
+    if (phaseLabels[id]) {
+      if (idx > 0) {
+        var hr = document.createElement('hr'); hr.className='divider'; main.appendChild(hr);
+      }
+      var lbl = document.createElement('div');
+      lbl.className = 'section-group-title';
+      lbl.textContent = phaseLabels[id].label;
+      if (phaseLabels[id].highlight) {
+        lbl.style.cssText = 'color:#dc2626;border-color:#fca5a5;font-size:0.85rem;background:#fef2f2;padding:4px 8px;border-radius:4px;border-bottom-width:2px';
+      }
+      main.appendChild(lbl);
+    }
+    if (allSections[id]) main.appendChild(allSections[id]);
+  });
+})();
+</script>
+</body>
+</html>

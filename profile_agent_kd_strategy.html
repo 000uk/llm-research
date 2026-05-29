@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile Agent의 LLM 경량화 — Step별 KD 전략 및 호출 구조 설계</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #1a1a2e; line-height: 1.75; font-size: 15px; }
+  header { background: #1a1a2e; color: #fff; padding: 40px 60px 30px; border-bottom: 4px solid #4a90d9; }
+  header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+  header p { color: #a0b0c8; font-size: 0.95rem; }
+  nav { background: #fff; border-bottom: 1px solid #dde3ed; padding: 20px 60px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  nav h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 10px; }
+  nav ol { display: flex; flex-wrap: wrap; gap: 6px 16px; padding-left: 20px; }
+  nav ol li { font-size: 0.82rem; }
+  nav ol li a { color: #4a90d9; text-decoration: none; }
+  nav ol li a:hover { text-decoration: underline; }
+  main { max-width: 1100px; margin: 40px auto; padding: 0 40px 80px; }
+  .category-label { display: inline-block; background: #4a90d9; color: #fff; font-size: 0.72rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 3px 10px; border-radius: 3px; margin-bottom: 14px; }
+  .category-label.disc { background: #8e44ad; }
+  .category-label.industry { background: #c2410c; }
+  section.paper { background: #fff; border: 1px solid #dde3ed; border-radius: 10px; padding: 40px 44px; margin-bottom: 48px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  section.paper h2 { font-size: 1.35rem; font-weight: 700; color: #1a1a2e; margin-bottom: 6px; }
+  .paper-meta { font-size: 0.82rem; color: #888; margin-bottom: 24px; border-bottom: 1px solid #eee; padding-bottom: 14px; }
+  .paper-meta a { color: #4a90d9; text-decoration: none; }
+  .summary, .key-ideas { margin-bottom: 28px; }
+  .summary h3, .key-ideas h3 { font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #4a90d9; margin-bottom: 12px; }
+  .summary p, .key-ideas p { margin-bottom: 12px; color: #333; }
+  .key-ideas ul { padding-left: 20px; }
+  .key-ideas ul li { margin-bottom: 8px; color: #333; }
+  .key-ideas ul li strong { color: #1a1a2e; }
+  .block { background: #f8fafc; border-left: 3px solid #4a90d9; padding: 14px 18px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 0.88rem; }
+  .block .label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #4a90d9; margin-bottom: 6px; }
+  .warn-block { background: #fff8e1; border-left: 3px solid #f5a623; padding: 14px 18px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 0.88rem; }
+  .warn-block .label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #f5a623; margin-bottom: 6px; }
+  .verify-block { background:#fef2f2; border-left:3px solid #dc2626; padding:14px 18px; border-radius:0 6px 6px 0; margin:14px 0; font-size:0.88rem; }
+  .verify-block .label { font-size:0.75rem; font-weight:700; text-transform:uppercase; color:#dc2626; margin-bottom:6px; }
+  .verified-block { background:#f0fdf4; border-left:3px solid #16a34a; padding:14px 18px; border-radius:0 6px 6px 0; margin:14px 0; font-size:0.88rem; }
+  .verified-block .label { font-size:0.75rem; font-weight:700; text-transform:uppercase; color:#16a34a; margin-bottom:6px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.85rem; }
+  th { background: #f0f4f8; font-weight: 700; padding: 8px 12px; text-align: left; border: 1px solid #dde3ed; color: #444; }
+  td { padding: 8px 12px; border: 1px solid #dde3ed; color: #333; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  .figure { margin-top: 24px; border-top: 1px solid #eee; padding-top: 20px; }
+  .figure h3 { font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #4a90d9; margin-bottom: 12px; }
+  .figure img { width: 100%; border-radius: 6px; border: 1px solid #dde3ed; display: block; background: #f8fafc; }
+  .figure-placeholder { background: #f0f4f8; border: 2px dashed #c5d0de; border-radius: 8px; padding: 40px; text-align: center; color: #888; font-size: 0.85rem; }
+  .figure-placeholder span { display: block; font-size: 2rem; margin-bottom: 8px; }
+  .figure p { font-size: 0.85rem; color: #666; margin-top: 10px; font-style: italic; }
+  .tag { display: inline-block; background: #eef2ff; color: #4a90d9; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; margin: 2px 2px 2px 0; font-weight: 600; }
+  .tag.red { background: #fff0f0; color: #d9534f; }
+  .tag.green { background: #f0fff4; color: #28a745; }
+  .tag.orange { background: #fff8e1; color: #f5a623; }
+  .gh-link { display:inline-block; background:#24292e; color:#fff !important; font-size:0.74rem; padding:3px 9px; border-radius:4px; margin-left:6px; font-weight:600; text-decoration:none !important; }
+  .gh-link:hover { background:#3d4248; }
+  code { background: #f4f6f9; border: 1px solid #dde3ed; border-radius: 3px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 0.85em; color: #c0392b; }
+  pre { background:#1a1a2e; color:#e2e8f0; border-radius:6px; padding:16px 18px; font-size:0.8rem; font-family:'Courier New',monospace; overflow-x:auto; margin:14px 0; line-height:1.55; }
+  pre code { background:transparent; border:none; color:#e2e8f0; padding:0; }
+  .divider { border: none; border-top: 2px solid #eef0f4; margin: 48px 0; }
+  .section-group-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #aaa; margin-bottom: 20px; margin-top: 40px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+  #overview, section.discussion { background:#fff; border:1px solid #dde3ed; border-radius:10px; padding:44px; margin-bottom:48px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+  #overview h2, section.discussion h2 { font-size:1.5rem; font-weight:700; margin-bottom:6px; color:#1a1a2e; }
+  #overview .subtitle, section.discussion .subtitle { color:#888; font-size:0.9rem; margin-bottom:32px; }
+  section.discussion h3 { font-size:1.05rem; font-weight:700; margin:24px 0 12px; color:#1a1a2e; border-left:4px solid #4a90d9; padding-left:12px; }
+  section.discussion h4 { font-size:0.95rem; font-weight:700; margin:18px 0 8px; color:#1a1a2e; }
+  section.discussion p { margin-bottom:12px; color:#333; }
+  .insight-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:24px 0; }
+  .insight-card { background:#f8fafc; border-radius:8px; padding:20px; border-left:4px solid #4a90d9; }
+  .insight-card.red  { border-color:#e74c3c; }
+  .insight-card.green{ border-color:#27ae60; }
+  .insight-card.orange{border-color:#f39c12; }
+  .insight-card.purple{border-color:#8e44ad; }
+  .insight-card h4 { font-size:0.82rem; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:8px; }
+  .insight-card.red h4   { color:#e74c3c; }
+  .insight-card.green h4 { color:#27ae60; }
+  .insight-card.orange h4{ color:#f39c12; }
+  .insight-card.purple h4{ color:#8e44ad; }
+  .insight-card p { font-size:0.88rem; color:#444; line-height:1.6; margin:0; }
+  .insight-card .cite { font-size:0.75rem; color:#888; margin-top:6px; font-style:italic; }
+  .step-flow { margin:24px 0; }
+  .step-row { display:flex; align-items:stretch; margin-bottom:10px; }
+  .step-block { flex:1; border-radius:8px; padding:14px 18px; background:#eef4ff; border:1px solid #93c5fd; }
+  .step-block .step-num { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#1d4ed8; margin-bottom:4px; }
+  .step-block .step-title { font-size:0.95rem; font-weight:700; color:#1a1a2e; margin-bottom:6px; }
+  .step-block .step-desc { font-size:0.82rem; color:#444; line-height:1.5; }
+  .step-arrow { display:flex; align-items:center; justify-content:center; width:36px; color:#93c5fd; font-size:1.3rem; flex-shrink:0; }
+  .verify-banner { background:linear-gradient(90deg,#fef2f2 0%,#fff5f5 100%); border:2px solid #fca5a5; border-radius:10px; padding:18px 22px; margin:24px 0; }
+  .verify-banner h4 { font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#dc2626; margin-bottom:8px; }
+  .verify-banner p { font-size:0.88rem; color:#7f1d1d; margin:0; line-height:1.6; }
+  .pro-con { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+  .pro-con .pro, .pro-con .con { padding:16px 18px; border-radius:8px; }
+  .pro-con .pro { background:#f0fdf4; border-left:4px solid #16a34a; }
+  .pro-con .con { background:#fef2f2; border-left:4px solid #dc2626; }
+  .pro-con h4 { font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:8px; }
+  .pro-con .pro h4 { color:#16a34a; }
+  .pro-con .con h4 { color:#dc2626; }
+  .pro-con ul { padding-left:18px; }
+  .pro-con li { font-size:0.83rem; color:#333; margin-bottom:5px; line-height:1.5; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Profile Agent의 LLM 경량화 — Step별 KD 전략 및 호출 구조 설계</h1>
+  <p>PURE 기반 user profile management agent (4-step) · Qwen3-235B teacher → 10B student 압축 검토 — 21편 참조 논문 (전체 검증 완료 · 2026-05-29 기준)</p>
+</header>
+
+<main>
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <h2>Profile Management Agent의 4-step Workflow와 KD 경량화 목표</h2>
+  <p class="subtitle">현재 호출 구조 · 권장 호출 구조 · 단계별 KD 추천 요약 · 검증 필요 범위</p>
+
+  <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px;color:#1a1a2e;border-bottom:2px solid #4a90d9;padding-bottom:8px">
+    1. 현재 Workflow (4-step)
+  </h3>
+
+  <div class="step-flow">
+    <div class="step-row">
+      <div class="step-block">
+        <div class="step-num">Step 1</div>
+        <div class="step-title">사용자 정보 압축</div>
+        <div class="step-desc">raw implicit log (클릭·저장·체류·길찾기·예약 전환) + explicit text (리뷰·질문·피드백·설정)<br>→ implicit summary / explicit summary</div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step-block">
+        <div class="step-num">Step 2</div>
+        <div class="step-title">사용자 신호 병합</div>
+        <div class="step-desc">implicit summary + explicit summary<br>→ 하나의 사용자 맥락 (evidence consolidation, 단순 요약 아님)</div>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-block">
+        <div class="step-num">Step 3</div>
+        <div class="step-title">candidate note 생성</div>
+        <div class="step-desc">merged user context<br>→ profile에 넣을 candidate note (structured schema)</div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step-block">
+        <div class="step-num">Step 4</div>
+        <div class="step-title">기존 노트와 병합</div>
+        <div class="step-desc">candidate note + existing user note tree (N개)<br>→ update / merge / create / no_update 결정</div>
+      </div>
+    </div>
+  </div>
+
+  <p style="margin-top:12px;color:#555;font-size:0.9rem">
+    현재 구조에서는 Step 1~3을 각각 Qwen3-235B로 호출하고, Step 4에서는 기존 노트 N개에 대해 반복 호출이 발생한다.
+    이 문서의 목표는 <strong>4번의 235B 호출 → 2번의 10B student 호출 + 일부 fallback</strong>으로 줄이기 위한
+    KD 전략과 호출 구조 재설계 근거를 정리하는 것이다.
+  </p>
+
+  <h3 style="font-size:1rem;font-weight:700;margin-top:32px;margin-bottom:16px;color:#1a1a2e;border-bottom:2px solid #4a90d9;padding-bottom:8px">
+    2. 권장 호출 구조 (가설)
+  </h3>
+
+  <table>
+    <thead>
+      <tr><th style="width:18%">호출</th><th style="width:32%">묶을 단계</th><th>역할</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>A. Signal-to-Candidate Student</strong></td><td>Step 1 + Step 2 + Step 3</td><td>raw signal → candidate note까지를 하나의 10B student 호출로 통합</td></tr>
+      <tr><td><strong>B. Profile-Updater Student</strong></td><td>Step 4 (batch)</td><td>candidate note + top-k 기존 노트만 받아 update/merge/create/no_update를 한 번에 결정</td></tr>
+      <tr><td><strong>C. 235B Fallback</strong></td><td>low confidence / schema error / 충돌 case</td><td>student가 처리하지 못한 경우만 teacher로 escalate</td></tr>
+    </tbody>
+  </table>
+
+  <div class="verify-banner">
+    <h4>⚠ 중요: 이 문서의 단계별 KD 추천은 모두 검증 필요 가설입니다</h4>
+    <p>아래 Section A의 Step 1~4 권장 방법, KD 종류 선택, 호출 통합 가설은 모두 <strong>참조 논문에서 다른 도메인에 적용된 결과를
+    우리 workflow에 외삽한 가설</strong>입니다. 실제 우리 데이터·model size·serving 환경에서 동일한 결과가 나온다는 보장은 없으며,
+    각 가설은 <code>experiment-protocol-writer</code>를 통해 falsifiable한 실험 protocol로 변환된 뒤 측정으로 확인되어야 합니다.</p>
+  </div>
+
+  <h3 style="font-size:1rem;font-weight:700;margin-top:32px;margin-bottom:16px;color:#1a1a2e;border-bottom:2px solid #4a90d9;padding-bottom:8px">
+    3. Step별 KD 추천 한 줄 요약
+  </h3>
+
+  <div class="insight-grid">
+    <div class="insight-card">
+      <h4>Step 1 — 사용자 정보 압축</h4>
+      <p><strong>Response KD + Structured Extraction SFT</strong> (black-box). teacher가 JSON 정답을 만들고 student가 그 schema를 모방한다. 핵심은 LLM 경량화 전에 비-LLM aggregation으로 <strong>입력 token을 먼저 줄이는 것</strong>.</p>
+      <p class="cite">근거: PURE (Review Extractor), RDRec (rationale distillation)</p>
+    </div>
+    <div class="insight-card green">
+      <h4>Step 2 — 사용자 신호 병합</h4>
+      <p><strong>SFT + Preference KD (DPO 또는 PLaD)</strong>. implicit와 explicit가 충돌하는 케이스에서는 "더 좋은 병합 결과"를 chosen/rejected pair로 학습해야 하며, capacity gap이 큰 235B→10B 압축에 preference KD가 적합하다는 가설.</p>
+      <p class="cite">근거: DPO, PLaD</p>
+    </div>
+    <div class="insight-card orange">
+      <h4>Step 3 — candidate note 생성</h4>
+      <p><strong>Schema-constrained Response KD</strong>. <code>factor / polarity / evidence / confidence</code> schema의 안정적 생성이 목표. schema validity, factor classification, evidence preservation, confidence calibration이 우선.</p>
+      <p class="cite">근거: PURE, Qwen3 TR (off-policy + on-policy KL), Every Expert Matters (MoE KD)</p>
+    </div>
+    <div class="insight-card purple">
+      <h4>Step 4 — 기존 노트와 병합</h4>
+      <p><strong>호출 구조 재설계 + Structured Agent Distillation + Preference KD</strong>. naive N번 비교 대신 candidate embedding으로 top-k 검색 → top-k만 한 번에 batch update. teacher 학습 데이터에는 짧은 reason을 포함하되 서빙에서는 action만 출력.</p>
+      <p class="cite">근거: Structured Agent Distillation, Agent Distillation</p>
+    </div>
+  </div>
+
+  <h3 style="font-size:1rem;font-weight:700;margin-top:32px;margin-bottom:16px;color:#1a1a2e;border-bottom:2px solid #4a90d9;padding-bottom:8px">
+    4. 이 문서의 구성
+  </h3>
+  <ul style="padding-left:22px;color:#333">
+    <li><strong>Section A.</strong> Step 1~4 각각에 대한 KD 추천 — <span style="color:#dc2626;font-weight:700">검증 필요 가설</span></li>
+    <li><strong>Section B.</strong> Step 1~3을 하나의 student로 통합할지, 분리할지 결정하기 위한 비교 분석</li>
+    <li><strong>Section C.</strong> 동일한 문제를 다른 회사가 어떻게 풀었는지 — Pinterest, Tencent, 학계 사례</li>
+  </ul>
+
+  <div class="verified-block" style="margin-top:16px">
+    <div class="label">✅ 2026-05-29 갱신: 이전 "존재 미확인" 4편 모두 arXiv에서 직접 확인됨</div>
+    이전 버전에서 "2026년 ID이므로 존재 여부 확인 불가"로 마킹되었던 4편 (arXiv:2604.21536 / 2603.07107 / 2603.16236 / 2601.18009)이 모두 실제 등재 논문임이 WebFetch로 확인되어, 본 버전에서는 검증된 metadata로 갱신했다. SLIM과 R³ Prompting의 부제도 원문에 맞게 수정했다.
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION A -->
+<div class="section-group-title">Section A — Step별 KD 추천 (⚠ 검증 필요 가설)</div>
+
+<!-- Step 1 -->
+<section class="discussion" id="step1-discuss">
+  <span class="category-label disc">Discussion · Step 1</span>
+  <h2>Step 1 — 사용자 정보 압축</h2>
+  <p class="subtitle">raw implicit log + explicit text → implicit / explicit summary</p>
+
+  <div class="verify-block">
+    <div class="label">⚠ 검증 필요</div>
+    이 절의 권장 방법은 PURE의 Review Extractor 구조와 RDRec의 rationale distillation 패턴을 우리 task에 적용했을 때 잘 동작할 것이라는 <strong>가설</strong>이다.
+  </div>
+
+  <h3>현재 task의 본질</h3>
+  <p>입력은 두 가지 채널로 들어온다. <strong>implicit log</strong>는 클릭, 저장, 체류, 길찾기, 예약 전환과 같은 사용자 행동의 로그이고, <strong>explicit text</strong>는 리뷰, 질문, 피드백, 설정과 같이 사용자가 명시적으로 남긴 문장이다.</p>
+
+  <h3>권장 방법: Response KD + Structured Extraction SFT (black-box)</h3>
+  <p>teacher인 Qwen3-235B에게 다음과 같은 JSON 형태의 정답을 만들게 한다. teacher의 logits나 attention weight를 전혀 보지 않는 black-box 방식이므로, 비공개 teacher API에서도 동작한다.</p>
+
+<pre><code>{
+  "implicit_summary": [
+    {
+      "signal": "조용한 카페에 반복적으로 관심",
+      "evidence_type": ["click", "save", "dwell"],
+      "strength": "medium",
+      "recency": "recent",
+      "confidence": 0.74
+    }
+  ],
+  "explicit_summary": [
+    {
+      "signal": "조용해서 좋았다는 리뷰 작성",
+      "evidence_type": ["review"],
+      "strength": "high",
+      "confidence": 0.91
+    }
+  ]
+}</code></pre>
+
+  <h3>주의점: LLM 경량화보다 먼저 "입력 token 경량화"</h3>
+<pre><code>raw click log 1000개
+  → 장소 category별 count
+  → event type별 weight
+  → recency bucket
+  → conversion 여부
+  → explicit signal과 충돌 여부</code></pre>
+
+  <div class="warn-block">
+    <div class="label">결합 axis 주의</div>
+    "10B student로 충분하다"는 결론은 입력이 aggregated된 상태에서의 결론이다. raw log를 그대로 넣는 환경과 비교하면 일반화되지 않는다.
+  </div>
+</section>
+
+<!-- Step 2 -->
+<section class="discussion" id="step2-discuss">
+  <span class="category-label disc">Discussion · Step 2</span>
+  <h2>Step 2 — 사용자 신호 병합</h2>
+  <p class="subtitle">implicit summary + explicit summary → 하나의 사용자 맥락 (evidence consolidation)</p>
+
+  <div class="verify-block">
+    <div class="label">⚠ 검증 필요</div>
+    Step 2를 SFT 단독이 아니라 preference KD까지 추가해야 한다는 결론은 "implicit와 explicit가 충돌하는 케이스가 우리 데이터에서 충분히 자주 나타난다"는 가정에 기반한다.
+  </div>
+
+  <h3>현재 task의 본질: 단순 요약이 아니라 evidence consolidation</h3>
+  <div class="block">
+    <div class="label">충돌 케이스 예시</div>
+    implicit: 고기집 클릭 많음<br>
+    explicit: 리뷰에서 "고기 냄새 배는 곳은 싫다"<br><br>
+    → "고기집 선호"로 합치면 잘못된 결론이다.
+  </div>
+
+  <h3>권장 방법: SFT + Preference KD</h3>
+<pre><code>candidate A: "사용자는 고기집을 선호한다."
+
+candidate B: "사용자는 고기집을 자주 탐색했지만,
+   냄새가 강한 고기집은 부정적으로 평가했다."
+
+chosen   = B
+rejected = A</code></pre>
+
+  <div class="warn-block">
+    <div class="label">전제 조건</div>
+    preference KD가 효과를 내려면 chosen/rejected pair 생성 자체가 안정적이어야 한다.
+  </div>
+</section>
+
+<!-- Step 3 -->
+<section class="discussion" id="step3-discuss">
+  <span class="category-label disc">Discussion · Step 3</span>
+  <h2>Step 3 — candidate user note 생성</h2>
+  <p class="subtitle">merged user context → ranking에 쓸 수 있는 schema의 candidate note</p>
+
+  <div class="verify-block">
+    <div class="label">⚠ 검증 필요</div>
+    Step 3의 schema-constrained 출력이 자유 텍스트보다 downstream ranking·retrieval에서 더 안정적이라는 결론은 가정이다.
+  </div>
+
+  <h3>평가 기준</h3>
+  <ul>
+    <li><strong>schema validity</strong> — 필드 누락·타입 오류가 없는지</li>
+    <li><strong>factor classification accuracy</strong> — factor가 일관되게 분류되는지</li>
+    <li><strong>evidence preservation</strong> — signal 추적 가능한지</li>
+    <li><strong>confidence calibration</strong> — confidence score가 실제 정확도와 상관관계를 갖는지</li>
+    <li><strong>duplicate suppression</strong> — 중복 후보가 생성되지 않는지</li>
+  </ul>
+
+<pre><code>{
+  "candidate_notes": [
+    {
+      "factor": "ambience",
+      "polarity": "positive",
+      "note": "조용하고 대화하기 좋은 카페를 선호",
+      "evidence": [
+        { "source": "review", "text": "조용해서 좋았다" },
+        { "source": "save",   "count": 3 }
+      ],
+      "confidence": 0.86,
+      "update_priority": "high"
+    }
+  ]
+}</code></pre>
+</section>
+
+<!-- Step 4 -->
+<section class="discussion" id="step4-discuss">
+  <span class="category-label disc">Discussion · Step 4</span>
+  <h2>Step 4 — 기존 사용자 노트와의 병합</h2>
+  <p class="subtitle">candidate note + existing note tree → update / merge / create / no_update</p>
+
+  <div class="verify-block">
+    <div class="label">⚠ 검증 필요</div>
+    Step 4의 가장 큰 가설은 "embedding 기반 top-k 검색이 candidate와 비교해야 할 기존 노트의 대부분을 cover한다"는 점이다.
+  </div>
+
+  <h3>권장 호출 구조</h3>
+  <ol style="padding-left:22px;color:#333">
+    <li>candidate_note의 embedding을 생성한다.</li>
+    <li>기존 note tree에서 embedding 기준 top-k 관련 노트만 검색한다.</li>
+    <li>top-k 노트만 student updater에 한 번에 넣는다.</li>
+    <li>한 번의 batch output으로 update / merge / create / no_update를 모두 결정한다.</li>
+  </ol>
+
+<pre><code>{
+  "updates": [
+    {
+      "action": "merge",
+      "target_note_id": "n_013",
+      "updated_note": "카페 방문 시 조용하고 대화하기 좋은 분위기를 선호",
+      "confidence": 0.88,
+      "evidence_used": ["review_17", "click_cluster_4"]
+    }
+  ],
+  "new_notes": [],
+  "no_update_notes": ["n_021", "n_034"],
+  "fallback_required": false
+}</code></pre>
+
+  <h3>권장 KD: Structured Agent Distillation + Preference KD</h3>
+<pre><code>{
+  "reason": "candidate와 n_013 모두 조용한 카페 분위기 선호를 말하므로,
+             새 노트 create가 아니라 merge가 적절함",
+  "action": "merge",
+  "target_note_id": "n_013",
+  "updated_note": "..."
+}</code></pre>
+
+  <div class="warn-block">
+    <div class="label">fallback이 필수</div>
+    Step 4 student의 output schema에 <code>fallback_required: true</code> 필드를 의도적으로 두고, low confidence·schema error·conflict 케이스를 235B로 escalate해야 안전하다.
+  </div>
+</section>
+
+<hr class="divider">
+<div class="section-group-title">Section A 참조 — KD / Distillation 논문</div>
+
+<!-- PURE -->
+<section class="paper" id="pure">
+  <span class="category-label">User Profile · LLM Recommender</span>
+  <h2>PURE: LLM-based User Profile Management for Recommender System</h2>
+  <div class="paper-meta">
+    Seunghwan Bang, Hwanjun Song &nbsp;·&nbsp; arXiv:2502.14541 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2502.14541" target="_blank">arxiv.org/abs/2502.14541</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>PURE는 LLM이 사용자 행동/리뷰 데이터에서 사용자 선호를 추출해 profile을 누적적으로 관리하도록 하는 추천 시스템 구조이다. 세 가지 핵심 구성요소: ① <strong>Review Extractor</strong> — 리뷰에서 user preference와 item feature를 구조적으로 추출, ② <strong>Profile Updater</strong> — profile을 정제·갱신, ③ <strong>Recommender</strong> — 최신 profile로 개인화 추천. Amazon dataset에서 기존 LLM 기반 방법 대비 우수한 성능을 보이며 token limitation을 명시적으로 다룬다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li><strong>Step 1 매핑</strong>: Review Extractor 패턴이 teacher → student SFT 데이터 schema의 모델이 된다.</li>
+      <li><strong>Step 3 매핑</strong>: profile에 누적되는 단위가 compact 단위여야 한다는 직접 근거.</li>
+      <li><strong>Step 4 매핑</strong>: profile token이 무한히 커지지 않도록 update / merge 규칙이 필요하다는 점이 PURE의 token limitation 관리 구조와 같은 문제이다.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2502.14541v2/x1.png" alt="PURE overall system" onerror="this.style.display='none';document.getElementById('fb-pure').style.display='block'">
+    <div id="fb-pure" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2502.14541v2 Fig.1 참조</div>
+    <p>Figure 1 (출처: arXiv:2502.14541v2): PURE의 전체 시스템 — Review Extractor / Profile Updater / Recommender가 reviews, ratings, item interactions를 통합 처리. LLM Recommender (item interaction만 사용)와의 비교.</p>
+  </div>
+</section>
+
+<!-- RDRec -->
+<section class="paper" id="rdrec">
+  <span class="category-label">Rationale Distillation · Recommender</span>
+  <h2>RDRec: Rationale Distillation Recommender</h2>
+  <div class="paper-meta">
+    Xinfeng Wang, Jin Cui, Yoshimi Suzuki, Fumiyo Fukumoto &nbsp;·&nbsp; arXiv:2405.10587 &nbsp;·&nbsp; ACL 2024 Short &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2405.10587" target="_blank">arxiv.org/abs/2405.10587</a>
+    <a class="gh-link" href="https://github.com/WangXFng/RDRec" target="_blank">GitHub</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>RDRec는 큰 LM이 user 행동·리뷰에 대해 생성한 <strong>rationale</strong>(왜 이 사용자가 이 item을 좋아할 가능성이 높은가에 대한 자연어 설명)을 작은 compact recommender가 학습하도록 distill한다. user preferences와 item attributes를 review에서 뽑아 profile에 specifies한 뒤, top-N 및 sequential recommendation 양쪽에서 SOTA를 달성한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>teacher가 추론한 자연어 설명을 student의 supervision으로 쓰는 패턴이 추천 도메인에서 검증됨.</li>
+      <li>RDRec는 추천 ranking이 목표이고, 우리는 profile management가 목표이므로 성능 수치를 외삽할 수 없다.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2405.10587v3/x1.png" alt="RDRec rationale distillation" onerror="this.style.display='none';document.getElementById('fb-rdrec').style.display='block'">
+    <div id="fb-rdrec" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2405.10587 + GitHub WangXFng/RDRec 참조</div>
+    <p>Figure (출처: arXiv:2405.10587v3): teacher LM이 user-item rationale을 생성하고, compact recommender가 그 rationale을 학습한다.</p>
+  </div>
+</section>
+
+<!-- DPO -->
+<section class="paper" id="dpo">
+  <span class="category-label">Preference Optimization</span>
+  <h2>DPO: Direct Preference Optimization — "Your Language Model is Secretly a Reward Model"</h2>
+  <div class="paper-meta">
+    Rafael Rafailov, Archit Sharma, Eric Mitchell, Christopher D. Manning, Stefano Ermon, Chelsea Finn &nbsp;·&nbsp; arXiv:2305.18290 &nbsp;·&nbsp; NeurIPS 2023 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2305.18290" target="_blank">arxiv.org/abs/2305.18290</a>
+    <a class="gh-link" href="https://github.com/eric-mitchell/direct-preference-optimization" target="_blank">GitHub (eric-mitchell)</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>DPO는 reward model을 별도로 학습하지 않고, chosen / rejected response pair만으로 LM을 직접 최적화하는 방법이다. RLHF가 (1) reward model 학습 + (2) PPO 강화학습의 두 단계로 진행되는 것에 비해, DPO는 한 단계로 두 단계 RLHF와 동등한 목적을 달성할 수 있다는 것을 수식적으로 유도한다. KL divergence constraint를 이용한 reward maximization을 policy parameter에 대한 closed-form으로 표현한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li><strong>Step 2 매핑</strong>: 충돌하는 implicit/explicit를 어떻게 병합할지의 선호 학습.</li>
+      <li><strong>Step 4 매핑</strong>: merge vs create vs update 중 어느 action이 더 적절한지에 대한 선호 학습.</li>
+      <li>핵심 전제: chosen/rejected pair를 일관성 있게 생성할 수 있어야 한다.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2305.18290v3/x1.png" alt="DPO vs RLHF" onerror="this.style.display='none';document.getElementById('fb-dpo').style.display='block'">
+    <div id="fb-dpo" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2305.18290 + GitHub eric-mitchell/direct-preference-optimization 참조</div>
+    <p>Figure 1 (출처: arXiv:2305.18290v3): RLHF (reward model + PPO, 2-stage) vs DPO (single-stage direct optimization). preference pair에서 LM 파라미터를 직접 업데이트.</p>
+  </div>
+</section>
+
+<!-- PLaD -->
+<section class="paper" id="plad">
+  <span class="category-label">Preference-based KD</span>
+  <h2>PLaD: Preference-based Large Language Model Distillation with Pseudo-Preference Pairs</h2>
+  <div class="paper-meta">
+    Rongzhi Zhang, Jiaming Shen, Tianqi Liu, Haorui Wang, Zhen Qin, Feng Han, Jialu Liu, Simon Baumgartner, Michael Bendersky, Chao Zhang &nbsp;·&nbsp; arXiv:2406.02886 &nbsp;·&nbsp; ACL 2024 Findings &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2406.02886" target="_blank">arxiv.org/abs/2406.02886</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>PLaD는 KD에서 teacher output을 그대로 모방하는 방식(sequence-level mimicry)이 teacher와 student의 capacity gap이 클 때 학습 신호로서 한계가 있다는 점을 지적한다. 대신 teacher output을 chosen, student output을 rejected로 두는 <strong>pseudo-preference pair</strong>를 만들고, student가 "상대적으로 더 좋은 출력을 선호"하도록 ranking loss로 sequence likelihood를 재보정한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li><strong>Step 2 / Step 4 매핑</strong>: 235B→10B capacity gap에서 PLaD의 ranking loss가 단순 SFT보다 유리할 가능성.</li>
+      <li>DPO와의 차이: PLaD는 teacher/student 자기 자신의 출력으로 pseudo-pair를 만든다. 둘은 결합 가능하다.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2406.02886v2/x1.png" alt="PLaD pseudo-preference pairs" onerror="this.style.display='none';document.getElementById('fb-plad').style.display='block'">
+    <div id="fb-plad" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2406.02886v2 Fig.2 참조</div>
+    <p>Figure (출처: arXiv:2406.02886v2): teacher output을 chosen, student output을 rejected로 묶어 ranking loss로 학습. capacity gap이 클수록 이점이 커진다.</p>
+  </div>
+</section>
+
+<!-- Qwen3 TR -->
+<section class="paper" id="qwen3tr">
+  <span class="category-label">Model Family · Distillation Recipe</span>
+  <h2>Qwen3 Technical Report</h2>
+  <div class="paper-meta">
+    The Qwen Team (Alibaba) &nbsp;·&nbsp; arXiv:2505.09388 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2505.09388" target="_blank">arxiv.org/abs/2505.09388</a>
+    <a class="gh-link" href="https://github.com/QwenLM/Qwen3" target="_blank">GitHub (QwenLM/Qwen3)</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>Qwen3 Technical Report는 Qwen3 model family (0.6B ~ 235B-A22B MoE, dense + MoE 통합)의 학습 recipe를 공개한다. Qwen3-235B-A22B는 MoE 구조(128 experts / 8 activated, no shared experts, global-batch load-balancing)로, activation parameter는 22B이다.</p>
+    <p><strong>Flagship 모델의 4단계 post-training pipeline:</strong></p>
+    <ol style="padding-left:20px;margin-top:8px;color:#333">
+      <li><strong>Long-CoT cold start</strong>: 기본 reasoning pattern 구축</li>
+      <li><strong>Reasoning RL (GRPO)</strong>: 수학/코드 강화학습</li>
+      <li><strong>Thinking mode fusion</strong>: CoT data와 non-CoT data를 합치고 <code>/think</code>/<code>/no_think</code> control token 도입</li>
+      <li><strong>General RL</strong>: instruction following, preferences, agent, multilingual</li>
+    </ol>
+    <p style="margin-top:10px"><strong>Small model용 Strong-to-Weak Distillation (2단계):</strong> flagship의 비싼 4단계 pipeline 대신, (1) <em>off-policy distillation</em>: teacher가 <code>/think</code>/<code>/no_think</code> 모드로 생성한 response를 student SFT target으로 사용, (2) <em>on-policy distillation</em>: student 자신의 생성물에 대해 teacher logits와의 KL divergence를 최소화. on-policy distillation이 full RL training보다 accuracy와 training cost 양쪽에서 우수하다고 보고한다.</p>
+    <p><strong>Thinking budget 기능</strong>: 최대 reasoning token budget을 설정하면 budget 도달 시 강제로 reasoning을 중단하고 accumulated reasoning으로 답을 생성한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>teacher (Qwen3-235B-A22B MoE) → student (Qwen3 dense small) 매칭이 family-internal distillation으로서 자연스럽다. tokenizer / chat template 차이가 적어 SFT 데이터 호환성이 높다.</li>
+      <li><strong>off-policy + on-policy distillation 두 단계</strong>는 우리 Step 1~3 SFT 데이터 구축에도 직접 적용 가능: 먼저 235B response를 target으로 SFT(off-policy), 이후 10B student 자신의 출력에 대해 235B logit alignment(on-policy KL)로 fine-grained alignment를 추가한다.</li>
+      <li><strong>thinking budget 개념</strong>: Step 4 fallback 판단에서 "student가 얼마나 reasoning을 소비했는지"를 confidence signal로 사용하는 설계의 참고가 된다.</li>
+      <li><strong>Every Expert Matters와의 결합</strong>: Qwen3-235B가 MoE이므로, standard off-policy distillation이 activated expert(22B)만 사용하는 한계를 KA/SAR로 보완할 수 있다는 가설.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2505.09388v1/x1.png" alt="Qwen3 family overview" onerror="this.style.display='none';document.getElementById('fb-qwen3').style.display='block'">
+    <div id="fb-qwen3" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2505.09388 + GitHub QwenLM/Qwen3 참조</div>
+    <p>Figure (출처: arXiv:2505.09388): flagship post-training 4단계 pipeline과 소형 모델용 off-policy + on-policy KL distillation shortcut.</p>
+  </div>
+</section>
+
+<!-- Every Expert Matters -->
+<section class="paper" id="every-expert">
+  <span class="category-label" style="background:#764ba2;">MoE KD · 신규 추가</span>
+  <h2>Every Expert Matters: Towards Effective Knowledge Distillation for Mixture-of-Experts Language Models</h2>
+  <div class="paper-meta">
+    Gyeongman Kim, Gyouk Chu, Eunho Yang &nbsp;·&nbsp; arXiv:2502.12947 &nbsp;·&nbsp; February 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2502.12947" target="_blank">arxiv.org/abs/2502.12947</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>기존 KD 방법들은 MoE teacher에서 token당 <strong>활성화된 expert(activated experts)만</strong>을 distillation 대상으로 삼는다. 이 논문은 활성화되지 않은 expert(non-activated experts)도 학생 모델에게 가치 있는 지식을 제공할 수 있다는 것을 핵심 발견으로 제시한다.</p>
+    <p><strong>두 가지 핵심 방법:</strong></p>
+    <ul>
+      <li><strong>KA (Knowledge Augmentation)</strong>: 활성화된 expert 외에 비활성화된 expert들도 여러 번 sampling해서 distillation signal을 풍부하게 만든다.</li>
+      <li><strong>SAR (Student-Aware Router)</strong>: 모든 expert를 사용하되, router가 추론 시점의 routing이 아니라 <strong>학생 모델 학습에 가장 도움이 되는 expert weighting</strong>을 학생 feedback으로 학습한다.</li>
+    </ul>
+  </div>
+
+  <div class="verified-block">
+    <div class="label">우리 Qwen3-235B MoE teacher에 대한 직접 함의</div>
+    Qwen3-235B-A22B는 총 235B parameters에서 per-token activation은 22B인 MoE이다. 기존 KD로는 각 token에 활성화되는 22B worth의 expert 지식만 student에 전달된다. <strong>KA와 SAR는 나머지 213B의 non-activated expert 지식도 활용</strong>하는 구조이므로, MoE teacher에서 student를 학습할 때 매우 직접적으로 적용 가능하다.
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li><strong>MoE teacher KD의 underexplored 문제</strong>: 235B MoE teacher → 10B dense student에서 표준 response KD는 activated expert만 사용해 teacher 용량의 ~9%만 활용. KA/SAR로 보완 가능.</li>
+      <li><strong>Step 1~3 SFT 데이터 품질 향상</strong>: 같은 입력에 대해 다수 expert에서의 변형을 KA로 모아 더 풍부한 학습 신호를 만든다.</li>
+      <li><strong>Step 4 action 학습</strong>: SAR처럼 "student가 잘 학습하도록 teacher representation을 조정"하는 아이디어는 단순 response copy보다 adaptive한 데이터 생성의 방향성을 제시.</li>
+    </ul>
+  </div>
+
+  <div class="warn-block">
+    <div class="label">적용 시 주의: 학습 비용 증가</div>
+    KA는 inference 시 non-activated expert를 추가로 sample해야 하므로 teacher data 생성 비용이 증가한다. SAR는 router 학습을 위해 student feedback loop가 필요하다. 우리 use case에서는 teacher data 생성이 offline batch이므로 KA는 적용하기 쉽고, SAR는 추가 engineering이 필요하다.
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2502.12947v1/x1.png" alt="Every Expert Matters KA and SAR" onerror="this.style.display='none';document.getElementById('fb-eem').style.display='block'">
+    <div id="fb-eem" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2502.12947v1 Fig.1 참조</div>
+    <p>Figure 1 (출처: arXiv:2502.12947v1, Gyeongman Kim et al.): 기존 KD (activated expert만) vs KA (non-activated도 sampling) vs SAR (student-aware routing) 비교.</p>
+  </div>
+</section>
+
+<!-- Structured Agent Distillation -->
+<section class="paper" id="sad">
+  <span class="category-label">Agent Trajectory KD</span>
+  <h2>Structured Agent Distillation for Large Language Model Agents</h2>
+  <div class="paper-meta">
+    arXiv:2505.13820 &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2505.13820" target="_blank">arxiv.org/abs/2505.13820</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>Structured Agent Distillation은 agent trajectory를 단순 token-level imitation으로 학습하지 않는다. trajectory를 <code>[REASON]</code> span과 <code>[ACT]</code> span으로 나누고, 각 span에 대해 <strong>separate KL-divergence penalty</strong>를 적용해 reasoning fidelity와 action consistency를 따로 보존한다. token-level / imitation-learning baseline 대비 <strong>+4~5% Task Success Rate</strong>, 12× 압축에서도 latency 감소를 보고한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li><strong>Step 4 매핑</strong>: reason / action 분리는 fallback 판단(언제 235B로 escalate할지)을 학습할 때도 유용하다.</li>
+      <li>서빙 시 reason 출력을 끄더라도 학습 supervision으로는 유지하는 설계의 직접 근거.</li>
+      <li>주의: SAD는 tool-use agent에서 검증되었다. profile update는 외부 tool call 대신 schema action이므로 외삽이 필요하다.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2505.13820v1/x1.png" alt="Structured Agent Distillation" onerror="this.style.display='none';document.getElementById('fb-sad').style.display='block'">
+    <div id="fb-sad" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2505.13820v1 참조</div>
+    <p>Figure (출처: arXiv:2505.13820v1): trajectory를 [REASON]/[ACT] span으로 분리하고 segment-specific KL loss 적용.</p>
+  </div>
+</section>
+
+<!-- Agent Distillation -->
+<section class="paper" id="agentdistill">
+  <span class="category-label">Agent Trajectory KD</span>
+  <h2>Distilling LLM Agent into Small Models with Retrieval and Code Tools</h2>
+  <div class="paper-meta">
+    Minki Kang, Jongwon Jeong, Seanie Lee, Jaewoong Cho, Sung Ju Hwang &nbsp;·&nbsp; arXiv:2505.17612 &nbsp;·&nbsp; NeurIPS 2025 Spotlight &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2505.17612" target="_blank">arxiv.org/abs/2505.17612</a>
+    <a class="gh-link" href="https://github.com/Nardien/agent-distillation" target="_blank">GitHub (Nardien)</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>단순 CoT distillation으로는 teacher agent의 전체 task-solving behavior가 small model에 충분히 옮겨지지 않는다는 문제를 다룬다. teacher agent가 retrieval, code 실행, 결과 해석을 묶어서 수행하는 행동 패턴 자체를 student가 학습해야 한다고 본다. <strong>first-thought prefix</strong> (teacher-generated trajectory 품질 향상) + <strong>self-consistent action generation</strong> (test-time robustness)으로 0.5B/1.5B/3B student가 1.5B/3B/7B CoT 모델과 경쟁한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li><strong>Step 4 매핑</strong>: "외부 자원(top-k existing notes)을 참조해 action을 내는" 구조는 retrieval-augmented agent와 동일한 패턴이다.</li>
+      <li>action 자체의 distillation이 reason의 distillation과 함께 가야 한다는 SAD와 같은 메시지를 다른 task에서 보강한다.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2505.17612v2/x1.png" alt="Agent Distillation pipeline" onerror="this.style.display='none';document.getElementById('fb-agent-distill').style.display='block'">
+    <div id="fb-agent-distill" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2505.17612 + GitHub Nardien/agent-distillation 참조</div>
+    <p>Figure (출처: arXiv:2505.17612): retrieval/code-tool 사용을 포함한 teacher agent 행동을 small model에 옮기는 학습 파이프라인 — first-thought prefix + self-consistent action generation.</p>
+  </div>
+</section>
+
+<!-- SLIM -->
+<section class="paper" id="slim">
+  <span class="category-label">Step-by-step KD · Recommender</span>
+  <h2>SLIM: Can Small Language Models be Good Reasoners for Sequential Recommendation?</h2>
+  <div class="paper-meta">
+    Yuling Wang, Changxin Tian, Binbin Hu, Yanhua Yu, Ziqi Liu, Zhiqiang Zhang, Jun Zhou, Liang Pang, Xiao Wang &nbsp;·&nbsp; arXiv:2403.04260 &nbsp;·&nbsp; 2024 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2403.04260" target="_blank">arxiv.org/abs/2403.04260</a>
+    <span class="tag green">검증됨 — 제목 수정 완료</span>
+  </div>
+
+  <div class="verified-block">
+    <div class="label">제목 정정</div>
+    이전 버전에서 부제를 "Step-by-step Knowledge Distillation"으로 표기했으나, 원문 제목은 <strong>"Can Small Language Models be Good Reasoners for Sequential Recommendation?"</strong>이다. 약자 SLIM은 본문 내부에서 정의된다.
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>SLIM은 LLM이 sequential recommendation에서 유용하지만 거대 모델을 serving하기에는 자원 비용이 크다는 문제를 잡는다. 큰 teacher model이 user behavior sequence에 대한 <strong>CoT rationale</strong>을 생성하고, 작은 student model (LLaMA2-7B 등)이 그 rationale을 학습하도록 하는 step-by-step KD를 제안한다. 생성된 explanation은 dense vector로 인코딩되어 ID-based / ID-agnostic recommendation 양쪽을 지원한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>teacher rationale을 학습용 supervision으로 쓰는 패턴이 추천 도메인에서 적용된 사례.</li>
+      <li><strong>운영상 주의</strong>: production에서는 rationale을 serving output에 포함하지 않는 것이 안전하다.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2403.04260v2/x1.png" alt="SLIM step-by-step KD" onerror="this.style.display='none';document.getElementById('fb-slim').style.display='block'">
+    <div id="fb-slim" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2403.04260 참조</div>
+    <p>Figure (출처: arXiv:2403.04260): user behavior sequence에 대한 teacher CoT rationale을 student가 학습. serving 시에는 rationale 없이 output만 제공.</p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION B -->
+<div class="section-group-title">Section B — Step 1~3 통합 vs 분리: 어떤 경우에 어떻게 자를 것인가</div>
+
+<section class="discussion" id="integration-discuss">
+  <span class="category-label disc">Discussion · Step 1~3 Integration</span>
+  <h2>Step 1 + Step 2 + Step 3을 하나의 student 호출로 묶을 수 있는가</h2>
+  <p class="subtitle">PURE는 통합형이지만, 우리는 noise가 많아 분리와 통합이 동시에 필요한 영역이 존재한다</p>
+
+  <div class="verify-block">
+    <div class="label">⚠ 검증 필요 가설</div>
+    아래 분리/통합 판단 기준은 4편 참조 논문에서 다른 task로 검증된 패턴을 우리 데이터에 외삽한 것이다.
+  </div>
+
+  <h3>케이스별 분기 가설</h3>
+
+  <table>
+    <thead>
+      <tr><th style="width:38%">입력 특성</th><th style="width:18%">권장 구조</th><th>이유</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>explicit review 있음 / implicit과 explicit 같은 방향 / 로그 길이 짧음 / strong signal(저장·예약·길찾기) 존재</td>
+        <td><strong>통합 1회 호출</strong></td>
+        <td>입력 노이즈가 작아 InstructUIE식 text-to-text 통합으로 충분 가능</td>
+      </tr>
+      <tr>
+        <td>클릭만 많고 저장/예약 없음 / explicit review와 implicit click이 충돌 / 기존 선호와 반대되는 후보 생성</td>
+        <td><strong>Step 1→2→3 분리 호출</strong></td>
+        <td>R³ Prompting · Decomposed Prompting: 노이즈 많은 입력은 단계 분리가 더 robust</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>통합 output schema</h3>
+<pre><code>{
+  "step1_implicit_summary": [...],
+  "step1_explicit_summary": [...],
+  "step2_merged_context":   {...},
+  "step3_candidate_notes":  [...]
+}</code></pre>
+
+  <div class="warn-block">
+    <div class="label">라우터의 학습 비용</div>
+    "통합 vs 분리"를 자동 결정하는 라우터 자체가 또 다른 학습 대상이 된다. 입력 특성을 rule 기반으로 분류할 수 있으면 rule이 가장 단순하다.
+  </div>
+</section>
+
+<!-- Decomposed Prompting -->
+<section class="paper" id="decomposed">
+  <span class="category-label">Prompt Decomposition</span>
+  <h2>Decomposed Prompting: A Modular Approach for Solving Complex Tasks</h2>
+  <div class="paper-meta">
+    Tushar Khot, Harsh Trivedi, Matthew Finlayson, Yao Fu, Kyle Richardson, Peter Clark, Ashish Sabharwal &nbsp;·&nbsp; arXiv:2210.02406 &nbsp;·&nbsp; ICLR 2023 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2210.02406" target="_blank">arxiv.org/abs/2210.02406</a>
+    <a class="gh-link" href="https://github.com/allenai/DecomP" target="_blank">GitHub (allenai/DecomP)</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>복잡한 task를 simpler sub-task로 분해하고, 각 sub-task를 별도의 prompt, 별도의 model, 또는 symbolic function으로 처리할 수 있게 하는 모듈형 구조를 제안한다. 각 prompt가 sub-task에 최적화될 수 있고 재귀적 분해와 prompt 교체도 가능하다. few-shot prompting (GPT-3) 기준선 대비 더 나은 성능을 보고한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>Step 1~3을 단일 prompt로 묶을 때 복잡도가 커지면 일관성을 잃을 수 있다는 우려의 근거.</li>
+      <li>implicit log가 길고 다양한 카테고리가 섞여 있을 때 sub-task 분리가 정확도에 유리할 가능성.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2210.02406v3/x1.png" alt="Decomposed Prompting framework" onerror="this.style.display='none';document.getElementById('fb-decomp').style.display='block'">
+    <div id="fb-decomp" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2210.02406 + GitHub allenai/DecomP 참조</div>
+    <p>Figure 1 (출처: arXiv:2210.02406): decomposer가 task를 sub-task들로 분해하고, 각 sub-task 전용 prompt/함수가 처리한다.</p>
+  </div>
+</section>
+
+<!-- PromptChainer -->
+<section class="paper" id="promptchainer">
+  <span class="category-label">Prompt Chaining</span>
+  <h2>PromptChainer: Chaining Large Language Model Prompts through Visual Programming</h2>
+  <div class="paper-meta">
+    arXiv:2203.06566 &nbsp;·&nbsp; CHI 2022 Extended Abstracts &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2203.06566" target="_blank">arxiv.org/abs/2203.06566</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>단일 LLM run으로 처리하기 어려운 복잡한 task를 prompt chain으로 연결하는 방식이 단일 prompt보다 <strong>더 투명하고 제어 가능</strong>하다는 점을 사용자 연구로 보인다. 동시에 intermediate output을 다음 단계가 받을 수 있는 형태로 변환하는 비용과 step별 debugging scaffolding이 필요하다는 점도 명시한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>분리 호출 구조의 운영상 이점(투명성·debugging·rollback)에 대한 근거.</li>
+      <li>chain 구조의 비용도 명확히 인정한다 — schema 변환과 debugging scaffolding이 누적된다.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2203.06566v1/x1.png" alt="PromptChainer visual programming" onerror="this.style.display='none';document.getElementById('fb-pc').style.display='block'">
+    <div id="fb-pc" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2203.06566 참조</div>
+    <p>Figure (출처: arXiv:2203.06566): prompt 노드를 visual programming 형태로 연결해 chained LLM workflow를 구성한다.</p>
+  </div>
+</section>
+
+<!-- R3 Prompting -->
+<section class="paper" id="r3">
+  <span class="category-label">Noise-robust Prompting</span>
+  <h2>R³ Prompting: Review, Rephrase and Resolve for Chain-of-Thought Reasoning under Noisy Context</h2>
+  <div class="paper-meta">
+    Qingyuan Tian, Hanlun Zhu, Lei Wang, Yang Li, Yunshi Lan &nbsp;·&nbsp; arXiv:2310.16535 &nbsp;·&nbsp; 2023 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2310.16535" target="_blank">arxiv.org/abs/2310.16535</a>
+    <span class="tag green">검증됨 — 부제 수정 완료</span>
+  </div>
+
+  <div class="verified-block">
+    <div class="label">부제 정정</div>
+    이전 버전에서 "Robust Multi-step Reasoning over Noisy Contexts"로 표기했으나, 정확한 부제는 <strong>"Review, Rephrase and Resolve for Chain-of-Thought Reasoning in Large Language Models under Noisy Context"</strong>이다. <strong>R³ = Review, Rephrase, Resolve</strong>의 약자.
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>noisy context에서 LLM이 부정확한 chain-of-thought reasoning을 낼 수 있다는 문제를 짚고, <strong>Review → Rephrase → Resolve</strong>의 세 단계로 나누어 처리한다. 노이즈 있는 입력에서는 "한 번에 답을 내는 것"보다 관련 정보를 우선 review하고 rephrase한 뒤 resolve하는 구조가 더 robust하다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>implicit log는 정의상 노이즈가 많다. "노이즈가 많을수록 단계 분리가 유리하다"는 핵심 분기 기준.</li>
+      <li>implicit과 explicit가 충돌하는 케이스는 R³가 다루는 "noisy context"의 전형적인 형태이다.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2310.16535v2/x1.png" alt="R3 Prompting Review Rephrase Resolve" onerror="this.style.display='none';document.getElementById('fb-r3').style.display='block'">
+    <div id="fb-r3" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2310.16535 참조</div>
+    <p>Figure (출처: arXiv:2310.16535): noisy 입력에서 직접 답 대신 Review → Rephrase → Resolve 3단계로 structured decomposition.</p>
+  </div>
+</section>
+
+<!-- InstructUIE -->
+<section class="paper" id="instructuie">
+  <span class="category-label">Unified Text-to-Text · IE</span>
+  <h2>InstructUIE: Multi-task Instruction Tuning for Unified Information Extraction</h2>
+  <div class="paper-meta">
+    arXiv:2304.08085 &nbsp;·&nbsp; 2023 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2304.08085" target="_blank">arxiv.org/abs/2304.08085</a>
+    <a class="gh-link" href="https://github.com/BeyonderXX/InstructUIE" target="_blank">GitHub (BeyonderXX)</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>논문 요약</h3>
+    <p>다양한 information extraction task를 instruction 기반 text-to-text 형식으로 통합하고, task 간 dependency를 같은 모델 안에서 포착하는 unified framework를 제안한다. Flan-T5 기반 11B 모델을 32개 IE dataset (IE INSTRUCTIONS benchmark)으로 학습해 supervised setting에서 BERT와 comparable, zero-shot setting에서 GPT-3.5보다 우수한 결과를 보고한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>Step 1~3을 instruction + 통합 schema로 묶으면 단일 student로 처리할 수 있다는 근거.</li>
+      <li>R³ / Decomposed Prompting과 반대 방향이지만, "입력 노이즈가 적고 task 간 의존이 명확할 때"는 통합 방식이 유리하다는 점에서 상보적.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2304.08085v1/x1.png" alt="InstructUIE framework" onerror="this.style.display='none';document.getElementById('fb-iuie').style.display='block'">
+    <div id="fb-iuie" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2304.08085 + GitHub BeyonderXX/InstructUIE 참조</div>
+    <p>Figure 1 (출처: arXiv:2304.08085): 여러 IE task의 입출력을 instruction 기반 단일 모델 형식으로 통합한 구조.</p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SECTION C -->
+<div class="section-group-title">Section C — Industry 적용 사례</div>
+
+<section class="discussion" id="industry-discuss">
+  <span class="category-label industry">Discussion · Industry Pattern</span>
+  <h2>Industry에서 반복되는 공통 패턴</h2>
+  <p class="subtitle">"LLM teacher offline · small student online" 구조와 그 변형들</p>
+
+  <h3>반복되는 해결 패턴</h3>
+  <ol style="padding-left:22px;color:#333">
+    <li><strong>Offline teacher labeling</strong>: 큰 LLM은 production에 두지 않고, offline에서 대량의 라벨이나 rationale을 생성하는 데만 사용한다.</li>
+    <li><strong>Small online student</strong>: 그 결과를 작은 student model에 distill해서 online serving은 student만으로 처리한다.</li>
+    <li><strong>Latency-sensitive / latency-tolerant 분리</strong>: 응답 시간이 중요한 모듈과 그렇지 않은 모듈을 분리해 무거운 모델은 latency-tolerant 쪽에만 둔다.</li>
+    <li><strong>Request-level deduplication</strong>: candidate 수가 많아져도 user 쪽 입력은 한 번만 처리하고 캐시한다.</li>
+    <li><strong>Post-training denoising</strong>: 추천 모델 자체는 그대로 두고, LLM은 입력(profile)에서 노이즈만 제거하는 역할로 한정한다.</li>
+  </ol>
+
+  <h3>우리 워크플로우에 매핑</h3>
+  <table>
+    <thead><tr><th>Industry 패턴</th><th>우리 적용</th></tr></thead>
+    <tbody>
+      <tr><td>Offline teacher labeling</td><td>Qwen3-235B로 Step 1~4 정답 데이터셋 미리 만들기</td></tr>
+      <tr><td>Small online student</td><td>10B Signal-to-Candidate Student + Profile-Updater Student</td></tr>
+      <tr><td>Latency-sensitive / tolerant 분리</td><td>실시간 click·save delta = 가벼운 student, 리뷰 분석 = 비동기 batch teacher</td></tr>
+      <tr><td>Request-level dedup</td><td>같은 user의 candidate note 생성은 1회만, top-k 비교 단계만 재사용</td></tr>
+      <tr><td>Post-training denoising</td><td>LLM이 profile에서 충돌·만료된 노트만 제거</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- Pinterest Search -->
+<section class="paper" id="pin-search">
+  <span class="category-label industry">Industry · Search Relevance</span>
+  <h2>Pinterest — Improving Pinterest Search Relevance Using Large Language Models</h2>
+  <div class="paper-meta">
+    Han Wang et al. &nbsp;·&nbsp; arXiv:2410.17152 &nbsp;·&nbsp; CIKM 2024 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2410.17152" target="_blank">arxiv.org/abs/2410.17152</a> &nbsp;·&nbsp;
+    <a href="https://medium.com/pinterest-engineering/improving-pinterest-search-relevance-using-large-language-models-4cd938d4e892" target="_blank">Pinterest Engineering Blog</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>요약</h3>
+    <p>Pinterest는 search relevance에 <strong>Llama-3-8B cross-encoder teacher</strong>를 도입했지만, real-time latency와 cost 제약 때문에 cross-encoder를 그대로 online serving하기 어렵다고 명시한다. LLM teacher가 대규모 logged search impression 데이터에 <strong>soft relevance labels (5-scale)</strong>을 offline에서 생성하게 하고, 훨씬 작은 student FNN 모델을 online serving에 사용한다. semi-supervised labeling으로 human-labeled dataset 대비 <strong>100x 더 많은 labeled data</strong>를 확보. LLM teacher가 기준 모델 대비 relevance prediction accuracy를 <strong>+19.7%</strong> 향상, KD student가 search feed relevance에서 <strong>+2.18% nDCG@20</strong>을 달성.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>"teacher는 offline labeling만, student가 online"의 분업 패턴이 production-scale 검색 시스템에서 검증됨.</li>
+      <li>5-scale soft label schema는 우리 Step 3 candidate note의 <code>confidence</code> 필드 및 <code>update_priority</code> 설계와 같은 사고방식.</li>
+      <li>human-labeled 100배 규모의 soft-labeled data가 핵심: 우리도 235B teacher로 대량의 정답 데이터를 생성하는 설계의 정당성.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2410.17152v1/x1.png" alt="Pinterest search relevance KD" onerror="this.style.display='none';document.getElementById('fb-pin-search').style.display='block'">
+    <div id="fb-pin-search" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2410.17152 참조</div>
+    <p>Figure (출처: arXiv:2410.17152, Han Wang et al., CIKM 2024): Llama-3-8B cross-encoder teacher가 offline에서 5-scale soft label을 생성하고 작은 FNN student가 online serving을 담당.</p>
+  </div>
+</section>
+
+<!-- Pre-trained LLM × Sequential Recommender (was: Textual Profile) -->
+<section class="paper" id="textual-profile">
+  <span class="category-label industry">Industry · Profile Distillation</span>
+  <h2>Pre-trained LLMs Meet Sequential Recommenders: Efficient User-Centric Knowledge Distillation</h2>
+  <div class="paper-meta">
+    Nikita Severin, Danil Kartushov, Vladislav Urzhumov, Vladislav Kulikov, Oksana Konovalova, Alexey Grishanov, Anton Klenitskiy, Artem Fatkulin, Alexey Vasilev, Andrey Savchenko, Ilya Makarov &nbsp;·&nbsp; arXiv:2604.21536 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2604.21536" target="_blank">arxiv.org/abs/2604.21536</a>
+    <span class="tag green">검증됨 — 2026-05-29 arXiv에서 직접 확인</span>
+  </div>
+
+  <div class="verified-block">
+    <div class="label">✅ 검증 완료 — 이전 "존재 미확인" 마킹 해제</div>
+    이전 버전에서 "2026년 ID이므로 존재 미확인"으로 표기되었으나, 2026-05-29 arXiv 직접 조회 결과 실제 등재 논문임이 확인되었다. 11명 저자, 정식 제목은 "Pre-trained LLMs Meet Sequential Recommenders: Efficient User-Centric Knowledge Distillation".
+  </div>
+
+  <div class="summary">
+    <h3>요약</h3>
+    <p>이 연구는 pre-trained LLM이 생성한 <strong>textual user profile</strong>을 sequential recommender에 주입하되, <strong>serving 시점에는 LLM inference 없이</strong> 동작하도록 하는 knowledge distillation 접근을 제안한다. architectural modification이나 LLM fine-tuning을 요구하지 않으며, computational efficiency를 유지하면서 더 풍부한 user understanding을 sequential recommender에 부여한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>LLM이 만든 profile을 직접 serving에 쓰지 않고, 작은 모델의 표현 공간에 "주입"하는 패턴 — 우리 Step 3 candidate note를 ranking 모델에 직접 넣지 않고 student를 통해 사용하는 사고방식과 일치.</li>
+      <li>architecture·training을 건드리지 않고 LLM knowledge를 가져오는 가장 가벼운 통합 방식.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2604.21536v1/x1.png" alt="LLM to Sequential Recommender KD" onerror="this.style.display='none';document.getElementById('fb-textual').style.display='block'">
+    <div id="fb-textual" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2604.21536v1 Fig.1 참조</div>
+    <p>Figure 1 (출처: arXiv:2604.21536v1, Severin et al.): pre-trained LLM에서 transformer-based sequential recommender로의 knowledge transfer 구조 — serving 시 LLM inference 없음.</p>
+  </div>
+</section>
+
+<!-- Pinterest Dedup -->
+<section class="paper" id="pin-dedup">
+  <span class="category-label industry">Industry · Serving Cost</span>
+  <h2>Pinterest — Scaling Recommendation Systems with Request-Level Deduplication</h2>
+  <div class="paper-meta">
+    Matt Lawhon, Filip Ryzner, Kousik Rajesh &nbsp;·&nbsp; Pinterest Engineering Blog &nbsp;·&nbsp;
+    <a href="https://medium.com/pinterest-engineering/scaling-recommendation-systems-with-request-level-deduplication-93bd514142d9" target="_blank">medium.com (Pinterest Engineering)</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>요약</h3>
+    <p>Pinterest recommendation funnel에서 같은 user data가 retrieval / ranking / candidate scoring 단계에서 반복 복사된다. 핵심 구조: context transformer가 user의 action sequence를 <strong>request 당 한 번만</strong> 처리하고, 각 layer의 key-value (KV) representation을 캐시한다. 이후 각 candidate item은 이 캐시된 user-history KV에 cross-attend하여 redundant recomputation을 제거한다 — <strong>DCAT (Deduplicated Cross-Attention Transformer)</strong>.</p>
+    <p><strong>측정 결과 (Pinterest 내부 보고):</strong></p>
+    <ul>
+      <li>Storage: user-heavy feature column에서 <strong>10~50x compression</strong></li>
+      <li>Training: <strong>4x retrieval speedup, 2.8x ranking speedup</strong></li>
+      <li>Serving: <strong>7x ranking throughput 증가</strong> → 비례 비용 증가 없이 <strong>100x 더 큰 모델</strong> 배포 가능</li>
+    </ul>
+    <p style="font-size:0.82rem;color:#666;font-style:italic">⚠ Pinterest 내부 측정치이며, hardware/batch/sequence/serving engine 조건이 다른 환경에 외삽 불가.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>우리 Step 4의 "candidate vs 기존 노트 N개" 비교에서 user-side 입력을 candidate마다 다시 보내지 않고 KV-캐시로 재사용하는 설계의 근거.</li>
+      <li>custom Triton kernel을 통한 GPU-side 최적화 — 우리 serving stack이 Triton을 지원하면 같은 방향으로 최적화 가능.</li>
+      <li>KD와 독립적인 system-level 최적화이므로 모델 교체 없이 먼저 적용 가능.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <div class="figure-placeholder"><span>[ ]</span>Pinterest 블로그 포스트의 DCAT 다이어그램 — naive (user sequence 중복 복사) vs request-level dedup (user KV 1회 계산 후 재사용). custom Triton kernel로 PCIe data transfer 8x 감소.</div>
+    <p>Figure (출처: Pinterest Engineering Blog): request 단위에서 user sequence를 한 번만 처리 → KV 캐시 → candidate cross-attention.</p>
+  </div>
+</section>
+
+<!-- PinFM -->
+<section class="paper" id="pinfm">
+  <span class="category-label industry">Industry · Foundation Model</span>
+  <h2>PinFM: Foundation Model for User Activity Sequences at a Billion-scale Visual Discovery Platform</h2>
+  <div class="paper-meta">
+    Xiangyi Chen, Kousik Rajesh, Matthew Lawhon et al. &nbsp;·&nbsp; arXiv:2507.12704 &nbsp;·&nbsp; ACM RecSys 2025 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2507.12704" target="_blank">arxiv.org/abs/2507.12704</a> &nbsp;·&nbsp;
+    <a href="https://dl.acm.org/doi/full/10.1145/3705328.3748050" target="_blank">ACM DL</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>요약</h3>
+    <p>Pinterest에서 500M+ 사용자 규모의 user activity sequence를 위한 foundation model이다. <strong>20B+ parameter transformer</strong>를 next-token prediction objective로 pretrain하고, home feed / search / ads / notifications 등 여러 downstream application에 fine-tune한다. <strong>DCAT (Deduplicated Cross-Attention Transformer)</strong>는 Pinterest Dedup 블로그와 동일한 아키텍처로, 이전 대비 <strong>600% throughput 향상</strong>, cold-start/new items에서 <strong>+20% engagement</strong>를 보고한다 (Pinterest 내부 측정치).</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>cross-attention에서의 dedup 원칙: user 쪽 입력을 key/value로, candidate들을 query로 두면 user computation을 1회만. 우리 Step 4에도 그대로 적용 가능.</li>
+      <li>next-token prediction으로 pretrain된 user sequence model이 여러 downstream task에 transfer 가능 — student를 user activity sequence로 pretrain 후 profile management task로 fine-tune하는 2단계 학습 방향을 시사.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2507.12704v1/x1.png" alt="PinFM DCAT architecture" onerror="this.style.display='none';document.getElementById('fb-pinfm').style.display='block'">
+    <div id="fb-pinfm" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2507.12704 (RecSys 2025) 참조</div>
+    <p>Figure (출처: arXiv:2507.12704, RecSys 2025): DCAT로 user sequence KV를 캐시하고 candidate item들이 cross-attend.</p>
+  </div>
+</section>
+
+<!-- LEADRE -->
+<section class="paper" id="leadre">
+  <span class="category-label industry">Industry · LLM Display Ads</span>
+  <h2>LEADRE: Multi-Faceted Knowledge Enhanced LLM Empowered Display Advertisement Recommender System</h2>
+  <div class="paper-meta">
+    Fengxin Li, Yi Li, Yue Liu, Chao Zhou et al. (14 authors) &nbsp;·&nbsp; arXiv:2411.13789 &nbsp;·&nbsp; VLDB 2025 Vol.18, p4763 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2411.13789" target="_blank">arxiv.org/abs/2411.13789</a> &nbsp;·&nbsp;
+    <a href="https://www.vldb.org/pvldb/vol18/p4763-he.pdf" target="_blank">VLDB PDF</a>
+    <span class="tag green">검증됨</span>
+  </div>
+
+  <div class="summary">
+    <h3>요약</h3>
+    <p>Tencent의 display advertising(WeChat Channels, WeChat Moments)에 LLM을 적용한 production 사례. <strong>LLM backbone: Hunyuan 1B</strong>. 핵심 문제는 implicit intent, sparse behavior, LLM-광고 시스템 knowledge gap, 하루 수십억 요청 규모에서의 deployment cost.</p>
+    <p><strong>세 가지 핵심 기술:</strong></p>
+    <ol style="padding-left:20px;margin-top:8px;color:#333">
+      <li><strong>Intent-Aware Prompt Engineering</strong>: user intent signal + ad content + business metadata를 통합한 (Prompt, Response) pair fine-tuning.</li>
+      <li><strong>Advertising-Specific Knowledge Alignment</strong>: auxiliary fine-tuning + <strong>DPO</strong>로 semantic relevance와 business value(GMV) 양쪽에 align.</li>
+      <li><strong>Hybrid Deployment</strong>: latency-tolerant path = LLM이 user interest profile / ad representation을 비동기로 precompute·캐시. latency-sensitive real-time path는 경량 path 사용. TensorRT-LLM acceleration.</li>
+    </ol>
+    <p><strong>Online A/B 결과 (Tencent 내부):</strong> WeChat Channels <strong>+1.57% GMV</strong>, WeChat Moments <strong>+1.17% GMV</strong>.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li><strong>latency-sensitive / latency-tolerant 분리</strong>: 우리 Step 4(실시간 update) vs 주기적 정리(비동기 batch)의 분리 가설을 수십억 requests/day 규모 production에서 검증한 사례.</li>
+      <li><strong>DPO로 business objective align</strong>: 단순 semantic relevance가 아니라 GMV라는 business metric에 DPO를 적용. 우리 Step 2/4의 preference pair chosen 기준을 "downstream ranking 성능을 더 높이는 병합"으로 잡는 설계와 같은 방향.</li>
+      <li>high-value user 우선 GPU 할당 → active user에 큰 teacher를 더 자주 호출하는 분기 가설로 매핑 가능.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2411.13789v1/x1.png" alt="LEADRE system architecture" onerror="this.style.display='none';document.getElementById('fb-leadre').style.display='block'">
+    <div id="fb-leadre" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2411.13789 (VLDB 2025) 참조</div>
+    <p>Figure (출처: arXiv:2411.13789, VLDB 2025): Hunyuan 1B를 offline precompute (latency-tolerant) + real-time path (latency-sensitive)로 분리.</p>
+  </div>
+</section>
+
+<!-- PSAD -->
+<section class="paper" id="psad">
+  <span class="category-label industry">Industry · Online KD · Reranking</span>
+  <h2>PSAD: Efficient Personalized Reranking with Semi-Autoregressive Generation and Online Knowledge Distillation</h2>
+  <div class="paper-meta">
+    Kai Cheng, Hao Wang, Wei Guo, Weiwen Liu, Yong Liu, Yawen Li, Enhong Chen &nbsp;·&nbsp; arXiv:2603.07107 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2603.07107" target="_blank">arxiv.org/abs/2603.07107</a>
+    <span class="tag green">검증됨 — 2026-05-29 arXiv에서 직접 확인</span>
+  </div>
+
+  <div class="verified-block">
+    <div class="label">✅ 검증 완료 — 이전 "존재 미확인" 마킹 해제</div>
+    arXiv 직접 조회 결과 실제 등재 논문임이 확인되었다. 정식 제목은 "Efficient Personalized Reranking with Semi-Autoregressive Generation and Online Knowledge Distillation"이며, 7명 저자.
+  </div>
+
+  <div class="summary">
+    <h3>요약</h3>
+    <p>generative reranking 모델이 inter-item dependency를 잘 잡지만 generation quality와 low-latency inference 사이에 trade-off가 있고, user-item feature interaction이 개선되어야 한다는 두 문제를 함께 해결한다. <strong>semi-autoregressive teacher</strong>를 <strong>lightweight scoring network</strong>에 online distill하고, <strong>User Profile Network</strong>로 user intent와 interest dynamics를 모델에 주입한다. 세 개 public dataset에서 ranking 성능과 inference speed 양쪽에서 baseline을 능가한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>"무거운 generative 모델 → 가벼운 scoring network"의 online distillation 패턴이 우리 Step 4 batch update 설계와 유사.</li>
+      <li>User Profile Network로 user dynamics를 주입하는 구조는 우리 Step 3 candidate note가 ranking 모델 입력이 되는 그림과 같은 사고방식.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2603.07107v1/x1.png" alt="PSAD semi-autoregressive distillation" onerror="this.style.display='none';document.getElementById('fb-psad').style.display='block'">
+    <div id="fb-psad" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2603.07107v1 참조</div>
+    <p>Figure (출처: arXiv:2603.07107, Kai Cheng et al.): semi-autoregressive teacher → lightweight scoring student + User Profile Network 구조.</p>
+  </div>
+</section>
+
+<!-- ReFORM -->
+<section class="paper" id="reform">
+  <span class="category-label industry">Industry · Multi-factor Profile</span>
+  <h2>ReFORM: Review-aggregated Profile Generation via LLM with Multi-Factor Attention for Restaurant Recommendation</h2>
+  <div class="paper-meta">
+    Moonsoo Park, Seulbeen Je, Donghyeon Park &nbsp;·&nbsp; arXiv:2603.16236 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2603.16236" target="_blank">arxiv.org/abs/2603.16236</a>
+    <span class="tag green">검증됨 — 2026-05-29 arXiv에서 직접 확인</span>
+  </div>
+
+  <div class="verified-block">
+    <div class="label">✅ 검증 완료 — 이전 "존재 미확인" 마킹 해제</div>
+    arXiv 직접 조회 결과 실제 등재 논문임이 확인되었다. 정식 제목은 "Review-aggregated Profile Generation via LLM with Multi-Factor Attention for Restaurant Recommendation". 저자: Moonsoo Park, Seulbeen Je, Donghyeon Park. 논문 본문에 code 및 dataset 공개 명시.
+  </div>
+
+  <div class="summary">
+    <h3>요약</h3>
+    <p>restaurant recommendation에서 리뷰에 담긴 다양한 decision factor를 활용한다. LLM으로 <strong>review-aggregated user / item profile</strong>을 factor별로 생성하고, <strong>Multi-Factor Attention</strong>으로 각 사용자의 의사결정에서 가장 영향력이 큰 factor를 강조한다. 두 개 restaurant dataset에서 baseline 대비 개선을 보고하며, code와 dataset이 공개되어 있다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>우리 Step 3 candidate note schema에서 <code>factor</code> 필드를 두는 설계가 ReFORM의 factor-specific profile과 직접 정렬됨.</li>
+      <li>multi-factor attention은 candidate note의 어떤 factor가 현재 query/세션에 중요한지 결정하는 ranking 단계 설계의 참고.</li>
+      <li>같은 domain (식당/장소 추천 + 리뷰 기반)에서 작동한다는 점에서 우리 use case에 가장 가까운 사례.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2603.16236v1/x1.png" alt="ReFORM framework overview" onerror="this.style.display='none';document.getElementById('fb-reform').style.display='block'">
+    <div id="fb-reform" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2603.16236v1 Fig.1 참조</div>
+    <p>Figure 1 (출처: arXiv:2603.16236v1, Park, Je, Park): LLM이 review에서 factor별 user/item profile을 생성하고, multi-factor attention이 query-specific factor를 가중합한다.</p>
+  </div>
+</section>
+
+<!-- LLM CF Denoising -->
+<section class="paper" id="cf-denoise">
+  <span class="category-label industry">Industry · CF Post-training Denoising</span>
+  <h2>Post-Training Denoising of User Profiles with LLMs in Collaborative Filtering Recommendation</h2>
+  <div class="paper-meta">
+    Ervin Dervishaj, Maria Maistro, Tuukka Ruotsalo, Christina Lioma &nbsp;·&nbsp; arXiv:2601.18009 &nbsp;·&nbsp;
+    <a href="https://arxiv.org/abs/2601.18009" target="_blank">arxiv.org/abs/2601.18009</a>
+    <span class="tag green">검증됨 — 2026-05-29 arXiv에서 직접 확인</span>
+  </div>
+
+  <div class="verified-block">
+    <div class="label">✅ 검증 완료 — 이전 "존재 미확인" 마킹 해제</div>
+    arXiv 직접 조회 결과 실제 등재 논문임이 확인되었다. 정식 제목: "Post-Training Denoising of User Profiles with LLMs in Collaborative Filtering Recommendation". 저자: Ervin Dervishaj, Maria Maistro, Tuukka Ruotsalo, Christina Lioma.
+  </div>
+
+  <div class="summary">
+    <h3>요약</h3>
+    <p>implicit feedback 데이터의 노이즈 문제를 다룬다. CF recommender의 architecture나 training procedure를 바꾸지 않고, <strong>LLM을 post-training denoising 도구로만</strong> 사용한다. LLM에 (i) user profile (interactions), (ii) candidate item, (iii) CF rank를 prompt로 주고, candidate rank가 더 좋아지는 방향으로 user profile에서 불필요한 interaction을 제거한다. 여러 dataset과 LLM에서 baseline user profile 대비 <strong>최대 13% 효과 개선</strong>을 보고한다.</p>
+  </div>
+
+  <div class="key-ideas">
+    <h3>이 워크플로우에서의 의미</h3>
+    <ul>
+      <li>LLM이 추천을 직접 수행하지 않고 profile에서 노이즈만 제거 — 우리 Step 4의 "오래된 note decay / 충돌 해결" 단계에 적용 가능.</li>
+      <li>기존 시스템(CF recommender)을 건드리지 않는 minimal-risk LLM 통합 방식.</li>
+      <li>"candidate rank가 좋아지는 방향"이라는 측정 가능한 signal로 LLM이 무엇을 지워야 할지 학습할 수 있다는 점은, 우리 Step 4의 conflict 해결 학습에도 같은 신호 설계를 적용할 수 있음을 시사.</li>
+    </ul>
+  </div>
+
+  <div class="figure">
+    <h3>Figure</h3>
+    <img src="https://arxiv.org/html/2601.18009v1/figures/denoising_LLM.png" alt="LLM CF post-training denoising" onerror="this.style.display='none';document.getElementById('fb-cfdn').style.display='block'">
+    <div id="fb-cfdn" class="figure-placeholder" style="display:none"><span>[ ]</span>이미지를 불러올 수 없습니다 — arXiv:2601.18009v1 참조</div>
+    <p>Figure (출처: arXiv:2601.18009, Dervishaj et al.): CF recommender 그대로 두고 LLM이 (user profile, candidate, CF rank)를 받아 profile에서 노이즈 interaction을 제거.</p>
+  </div>
+</section>
+
+<hr class="divider">
+
+</main>
+</body>
+</html>
