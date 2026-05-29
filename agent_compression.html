@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent LLM 경량화 방법론 조사: 모델 압축을 넘어 Tool, Context, Workflow 최적화까지</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #1a1a2e; line-height: 1.75; font-size: 15px; }
+  header { background: #1a1a2e; color: #fff; padding: 44px 60px 32px; border-bottom: 4px solid #4a90d9; }
+  header h1 { font-size: 1.85rem; font-weight: 700; margin-bottom: 8px; line-height: 1.35; }
+  header .sub { color: #a0b0c8; font-size: 0.92rem; margin-bottom: 6px; }
+  header .meta { color: #7a8aa4; font-size: 0.78rem; }
+  nav { background: #fff; border-bottom: 1px solid #dde3ed; padding: 20px 60px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  nav h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 10px; }
+  nav ol { display: flex; flex-wrap: wrap; gap: 6px 16px; padding-left: 20px; }
+  nav ol li { font-size: 0.82rem; }
+  nav ol li a { color: #4a90d9; text-decoration: none; }
+  nav ol li a:hover { text-decoration: underline; }
+  nav ol li.tax { color: #475569; font-weight: 700; font-size: 0.78rem; }
+  main { max-width: 1120px; margin: 40px auto; padding: 0 40px 80px; }
+
+  section.doc { background: #fff; border: 1px solid #dde3ed; border-radius: 10px; padding: 36px 42px; margin-bottom: 36px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  section.doc h2 { font-size: 1.35rem; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+  section.doc .sec-num { font-size: 0.72rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #4a90d9; margin-bottom: 6px; display: block; }
+  section.doc h3 { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin: 22px 0 10px; padding-left: 12px; border-left: 4px solid #4a90d9; }
+  section.doc h4 { font-size: 0.92rem; font-weight: 700; color: #1a1a2e; margin: 14px 0 6px; }
+  section.doc p { color: #333; margin-bottom: 10px; }
+  section.doc ul, section.doc ol { padding-left: 22px; margin-bottom: 10px; }
+  section.doc li { color: #333; margin-bottom: 6px; }
+
+  .table-wrap { overflow-x: auto; margin: 14px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.84rem; min-width: 640px; }
+  th { background: #f0f4f8; font-weight: 700; padding: 9px 12px; text-align: left; border: 1px solid #dde3ed; color: #1a1a2e; }
+  td { padding: 9px 12px; border: 1px solid #dde3ed; color: #333; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  td code, p code, li code { background: #f4f6f9; border: 1px solid #dde3ed; border-radius: 3px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 0.85em; color: #c0392b; }
+
+  /* Summary grid for §0 */
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 18px 0; }
+  .summary-card { padding: 16px 18px; border-radius: 8px; border: 1px solid #dde3ed; background: #f8fafc; }
+  .summary-card h3 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; padding: 0; border: none; }
+  .summary-card.model h3 { color: #2563eb; }
+  .summary-card.tool  h3 { color: #c2410c; }
+  .summary-card.context h3 { color: #0891b2; }
+  .summary-card.workflow h3 { color: #7c3aed; }
+  .summary-card.model { background: #eff6ff; border-color: #bfdbfe; }
+  .summary-card.tool { background: #fff7ed; border-color: #fed7aa; }
+  .summary-card.context { background: #ecfeff; border-color: #a5f3fc; }
+  .summary-card.workflow { background: #f5f3ff; border-color: #c4b5fd; }
+  .summary-card p { font-size: 0.85rem; color: #1f2937; line-height: 1.55; margin: 0; }
+  @media (max-width: 800px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
+
+  /* Method section */
+  section.method-section { background:#fff; border:1px solid #dde3ed; border-radius:10px; padding:32px 36px; margin-bottom:32px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+  section.method-section h2 { font-size: 1.25rem; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+  section.method-section .sec-num { font-size: 0.72rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; display: block; }
+  section.method-section.m1 .sec-num { color:#2563eb; } section.method-section.m1 { border-left: 5px solid #2563eb; }
+  section.method-section.m2 .sec-num { color:#16a34a; } section.method-section.m2 { border-left: 5px solid #16a34a; }
+  section.method-section.m3 .sec-num { color:#7c3aed; } section.method-section.m3 { border-left: 5px solid #7c3aed; }
+  section.method-section.m4 .sec-num { color:#c2410c; } section.method-section.m4 { border-left: 5px solid #c2410c; }
+  section.method-section.m5 .sec-num { color:#0891b2; } section.method-section.m5 { border-left: 5px solid #0891b2; }
+  section.method-section.m6 .sec-num { color:#dc2626; } section.method-section.m6 { border-left: 5px solid #dc2626; }
+  section.method-section.m7 .sec-num { color:#0d9488; } section.method-section.m7 { border-left: 5px solid #0d9488; }
+  section.method-section.m8 .sec-num { color:#d97706; } section.method-section.m8 { border-left: 5px solid #d97706; }
+  .method-label { display:inline-block; background:#4a90d9; color:#fff; font-size:0.7rem; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:3px 10px; border-radius:3px; margin-bottom:10px; }
+  .method-section.m1 .method-label { background:#2563eb; }
+  .method-section.m2 .method-label { background:#16a34a; }
+  .method-section.m3 .method-label { background:#7c3aed; }
+  .method-section.m4 .method-label { background:#c2410c; }
+  .method-section.m5 .method-label { background:#0891b2; }
+  .method-section.m6 .method-label { background:#dc2626; }
+  .method-section.m7 .method-label { background:#0d9488; }
+  .method-section.m8 .method-label { background:#d97706; }
+  .badge.condition { background: #fef3c7; color: #92400e; }
+  .badge.extension { background: #ede9fe; color: #6d28d9; }
+  .badge.native    { background: #cffafe; color: #155e75; }
+  .cd-box.runtime { background:#ccfbf1; border-color:#5eead4; color:#115e59; }
+  .cd-box.cache   { background:#f0fdfa; border-color:#99f6e4; color:#0f766e; }
+  .cd-box.draft   { background:#fef3c7; border-color:#fcd34d; color:#92400e; }
+  .cd-box.verify  { background:#ede9fe; border-color:#c4b5fd; color:#5b21b6; }
+  .cd-box.token   { background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
+
+  .method-overview { background: #f8fafc; border-left: 3px solid #94a3b8; padding: 14px 18px; border-radius: 0 6px 6px 0; margin: 14px 0 18px; font-size: 0.9rem; }
+  .method-overview p { margin: 4px 0; color: #333; }
+  .method-overview p strong { color: #1a1a2e; }
+
+  /* Paper card (compact) */
+  .paper-cards { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 16px 0; }
+  .paper-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 18px; }
+  .paper-card .pc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f1f5f9; }
+  .paper-card .pc-title { font-size: 0.95rem; font-weight: 700; color: #1a1a2e; flex: 1 1 auto; min-width: 200px; }
+  .paper-card .pc-meta { font-size: 0.78rem; color: #64748b; }
+  .paper-card .pc-meta a { color: #4a90d9; text-decoration: none; }
+  .paper-card .pc-body { display: grid; grid-template-columns: 100px 1fr; gap: 4px 12px; font-size: 0.84rem; line-height: 1.55; }
+  .paper-card .pc-body .k { font-weight: 700; color: #475569; }
+  .paper-card .pc-body .v { color: #1f2937; }
+  @media (max-width: 700px) { .paper-card .pc-body { grid-template-columns: 1fr; } .paper-card .pc-body .k { margin-top: 4px; } }
+
+  /* Evidence-level badges */
+  .badge { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-right: 4px; vertical-align: middle; }
+  .badge.direct  { background: #dcfce7; color: #15803d; }
+  .badge.crossdom { background: #fef3c7; color: #b45309; }
+  .badge.position { background: #e0e7ff; color: #4338ca; }
+  .badge.extrap  { background: #fee2e2; color: #b91c1c; }
+  .badge.uncertain { background: #e2e8f0; color: #475569; }
+  .badge.venue-check { background: #fee2e2; color: #b91c1c; }
+  .badge.preprint { background: #fef3c7; color: #92400e; }
+  .badge.accepted { background: #dcfce7; color: #15803d; }
+  .badge.gh { background: #24292e; color: #fff; }
+
+  /* Warning / note / verify boxes */
+  .warn-box { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 14px 18px; border-radius: 0 6px 6px 0; margin: 14px 0; }
+  .warn-box h4 { font-size: 0.85rem; font-weight: 700; color: #b45309; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.6px; }
+  .warn-box p, .warn-box li { font-size: 0.86rem; color: #1f2937; margin: 4px 0; }
+  .note-box { background: #eff6ff; border-left: 4px solid #2563eb; padding: 14px 18px; border-radius: 0 6px 6px 0; margin: 14px 0; }
+  .note-box h4 { font-size: 0.85rem; font-weight: 700; color: #1d4ed8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.6px; }
+  .note-box p, .note-box li { font-size: 0.86rem; color: #1f2937; margin: 4px 0; }
+  .verify-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 14px 18px; border-radius: 0 6px 6px 0; margin: 14px 0; }
+  .verify-box h4 { font-size: 0.85rem; font-weight: 700; color: #dc2626; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.6px; }
+  .verify-box p, .verify-box li { font-size: 0.86rem; color: #1f2937; margin: 4px 0; }
+
+  /* Concept diagram styles */
+  .concept-diagram { margin: 18px 0; padding: 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }
+  .concept-diagram .cd-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #475569; margin-bottom: 12px; text-align: center; }
+  .cd-horizontal { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .cd-box { background: #fff; border: 2px solid #cbd5e1; border-radius: 6px; padding: 10px 14px; font-size: 0.82rem; font-weight: 600; color: #1a1a2e; text-align: center; min-width: 100px; }
+  .cd-box.teacher { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+  .cd-box.student { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+  .cd-box.trace { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+  .cd-box.slm { background: #ecfeff; border-color: #67e8f9; color: #155e75; }
+  .cd-box.llm { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+  .cd-box.input { background: #f5f3ff; border-color: #c4b5fd; color: #6d28d9; }
+  .cd-arrow { font-size: 1.4rem; color: #94a3b8; font-weight: 700; padding: 0 4px; }
+  .cd-arrow-label { font-size: 0.72rem; color: #64748b; font-style: italic; }
+  .cd-split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .cd-col { background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 14px; }
+  .cd-col h4 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #475569; margin-bottom: 6px; }
+  .cd-col p { font-size: 0.82rem; color: #1f2937; margin: 0; }
+  .cd-col.before { border-top: 4px solid #ef4444; }
+  .cd-col.after { border-top: 4px solid #22c55e; }
+  .cd-stack { display: flex; flex-direction: column; gap: 8px; }
+  .cd-stack .cd-box { width: 100%; }
+  .cd-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .cd-tag { padding: 6px 12px; border-radius: 14px; font-size: 0.78rem; font-weight: 600; }
+  .cd-tag.useless { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .cd-tag.redundant { background: #fffbeb; color: #b45309; border: 1px solid #fcd34d; }
+  .cd-tag.expired { background: #f5f5f5; color: #525252; border: 1px solid #d4d4d4; }
+  .cd-tag.kept { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
+  .cd-caption { font-size: 0.78rem; color: #64748b; font-style: italic; margin-top: 10px; text-align: center; }
+
+  /* Layered bar (for §2.1) */
+  .cd-layered { display: flex; flex-direction: column; gap: 6px; }
+  .cd-layer { padding: 8px 12px; border-radius: 4px; font-size: 0.82rem; font-weight: 600; color: #fff; display: flex; justify-content: space-between; }
+  .cd-layer .ly-l { font-weight: 700; }
+  .cd-layer .ly-r { font-weight: 400; font-size: 0.78rem; opacity: 0.9; }
+  .cd-layer.l16 { background: #1e3a8a; width: 100%; }
+  .cd-layer.l8  { background: #2563eb; width: 65%; }
+  .cd-layer.l4  { background: #60a5fa; width: 35%; color:#1e3a8a; }
+  .cd-layer.lora { background: #fef3c7; color: #92400e; width: 12%; border: 1px solid #fcd34d; }
+
+  /* Branching diagram (for §2.2) */
+  .cd-branch { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+  .cd-branch .cd-box { font-size: 0.78rem; padding: 10px 8px; }
+
+  hr.divider { border: none; border-top: 2px solid #eef0f4; margin: 36px 0; }
+  .sec-group-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2.5px; color: #94a3b8; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+
+  /* Footer */
+  footer { color: #94a3b8; font-size: 0.78rem; text-align: center; padding: 24px 0 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Agent LLM 경량화 방법론 조사: 모델 압축을 넘어 Tool, Context, Workflow 최적화까지</h1>
+  <p class="sub">Taxonomy 중심 정리 (§2 8 카테고리 / 30+편 참조) + Domain Bridge (§6 user profile / recommender / workflow decomposition / industry / Qwen3 teacher 관점 reference)</p>
+  <p class="meta">작성: 2026-05-29 · 본 파일 = <code>agent_compression.html</code> (최종) · 진화: methodology v1 (taxonomy) → v2 serving (Serving + Decoding 보강) → 현재 (§6 Domain Bridge 추가, Appendix → §7) · 출처: <code>llm_compression_papers.html</code>, <code>profile_agent_kd_strategy.html</code>, <code>docs/agent_llm_compression_rebuild_plan.md</code> · 검증 트레일: <code>docs/agent_llm_compression_validation_report.md</code>, <code>docs/serving_decoding_supplement_report.md</code></p>
+</header>
+
+<main>
+
+<!-- ════════════ §0 Executive Summary ════════════ -->
+<section class="doc" id="exec">
+  <span class="sec-num">§0</span>
+  <h2>Executive Summary</h2>
+
+  <p>Agent LLM 경량화는 "큰 모델을 작은 모델로 바꾸는 문제"가 아니다. Agent의 비용은 모델 파라미터에만 있지 않고, <strong>tool schema · action space · trajectory context · LLM 호출 횟수 · fallback cost</strong>에 분산되어 있다. 일반 LLM 벤치마크 (PPL, MMLU, QA accuracy)에서 동등하더라도, agent workflow에서는 schema 파싱 실패·잘못된 tool 선택·multi-step 누적 오류로 인해 실패할 수 있다. 따라서 경량화의 첫 단계는 "어느 비용을 줄이려는가"를 명확히 하는 것이다.</p>
+
+  <div class="summary-grid">
+    <div class="summary-card model">
+      <h3>Model</h3>
+      <p>Quantization, KD, PEFT로 model serving cost (memory · latency)를 줄인다. 4-bit·LoRA 같은 표준 도구.</p>
+    </div>
+    <div class="summary-card tool">
+      <h3>Tool</h3>
+      <p>Tool schema와 action space를 줄여 prompt overhead와 tool-call 오류를 낮춘다. tool selection · internalization · module reuse.</p>
+    </div>
+    <div class="summary-card context">
+      <h3>Context</h3>
+      <p>Trajectory history와 memory context를 압축해 multi-step 누적 비용을 줄인다. useless·redundant·expired 정보 제거.</p>
+    </div>
+    <div class="summary-card workflow">
+      <h3>Workflow</h3>
+      <p>Cascade, router, fallback, batch decision으로 LLM call count와 큰 모델 호출 비율을 줄인다. 모델 압축과 독립적인 축.</p>
+    </div>
+  </div>
+
+  <h3>이 문서가 답하는 4가지 질문</h3>
+  <ol>
+    <li>Agent LLM 경량화가 일반 LLM 경량화와 어떻게 다른가 (§1).</li>
+    <li>"줄이는 대상"을 기준으로 메서드를 어떻게 분류하는가 (§2 Taxonomy).</li>
+    <li>각 카테고리의 대표 논문, 장점, 한계, 평가 지표는 무엇인가 (§2 paper card + §3 비교 표).</li>
+    <li>상황별로 어느 메서드를 먼저 검토해야 하는가 (§5 선택 가이드).</li>
+  </ol>
+
+  <div class="note-box">
+    <h4>Profile Agent 적용은 본문이 아니라 부록입니다</h4>
+    <p>본 문서는 일반 Agent LLM 경량화 방법론을 정리한 문서이며, 우리 자체 워크플로우(Profile Management Agent)에 어떻게 적용할지는 <a href="#appendix">§6 Appendix</a>에서 짧게(전체 분량의 15% 이하) 다룬다. 본문 §1~§5는 어떤 agent 도메인에도 읽힐 수 있도록 작성되었다.</p>
+  </div>
+
+  <div class="verify-box" style="border-left-color:#0d9488;background:#f0fdfa">
+    <h4 style="color:#0f766e">v2 갱신 노트 — Serving / Decoding 보강 (2026-05-29)</h4>
+    <p>v2에서는 기존 6 카테고리에 두 카테고리를 추가했다.</p>
+    <ul>
+      <li><strong>§2.6 Serving / Runtime-level optimization</strong> — vLLM, SGLang, CacheGen. 모델을 줄이는 방법이 아니라 큰 모델을 호출할 때 KV cache / 반복 prefix / context loading 비용을 줄이는 runtime 최적화.</li>
+      <li><strong>§2.7 Decoding optimization</strong> — Speculative Decoding, Medusa, EAGLE, Lookahead, MTP, Early Exit. 같은 모델의 autoregressive generation을 빠르게 하는 방법. 끝에 Output length와 Qwen3 thinking/non-thinking mode subsection.</li>
+    </ul>
+    <p>기존 §2.6 System-level orchestration은 <strong>§2.8</strong>로 이동했다. 분류 원칙: "모델을 작게 만드는 방법(§2.1~§2.3) ≠ runtime을 빠르게 하는 방법(§2.6) ≠ decoding을 빠르게 하는 방법(§2.7) ≠ 호출 자체를 줄이는 방법(§2.8)"을 혼동하지 않는다.</p>
+  </div>
+</section>
+
+<!-- ════════════ §1 ════════════ -->
+<section class="doc" id="diff">
+  <span class="sec-num">§1</span>
+  <h2>일반 LLM 경량화와 Agent LLM 경량화의 차이</h2>
+
+  <h3>1.1 7개 차원 비교</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:18%">비교 차원</th>
+          <th style="width:41%">일반 LLM 경량화</th>
+          <th style="width:41%">Agent LLM 경량화</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>평가 기준</strong></td>
+          <td>PPL, MMLU, QA accuracy, generation quality</td>
+          <td>Tool-call accuracy, schema validity, task success rate, multi-turn robustness, fallback rate</td>
+        </tr>
+        <tr>
+          <td><strong>실패 방식</strong></td>
+          <td>답변 품질 저하, 사실 오류, 추론 오류</td>
+          <td>잘못된 tool 선택, JSON 파싱 실패, argument 누락, multi-step 누적 오류, workflow 중단</td>
+        </tr>
+        <tr>
+          <td><strong>비용 원천</strong></td>
+          <td>모델 파라미터 수 + weight precision + KV cache</td>
+          <td>모델 파라미터 + tool schema token + trajectory context + 반복 LLM 호출 + fallback 비용</td>
+        </tr>
+        <tr>
+          <td><strong>KD 대상</strong></td>
+          <td>Token 분포, sequence likelihood, instruction-following</td>
+          <td>Reason / action / observation trajectory, tool-call format, schema</td>
+        </tr>
+        <tr>
+          <td><strong>Context 길이</strong></td>
+          <td>입력 길이는 task당 비교적 고정</td>
+          <td>step이 늘수록 누적. 10-step agent의 마지막 step input은 첫 step보다 훨씬 김</td>
+        </tr>
+        <tr>
+          <td><strong>Tool schema 부담</strong></td>
+          <td>없음 (또는 system prompt 수준)</td>
+          <td>입력 token의 다수를 차지하는 경우가 흔함 (관련 보고치: tool description이 입력의 82.6% 사례<sup>[ACBench / Internalizing Tool Knowledge, 조건 명시는 원문 참조]</sup>)</td>
+        </tr>
+        <tr>
+          <td><strong>실서비스 위험</strong></td>
+          <td>품질 저하가 점진적</td>
+          <td>한 step의 schema 위반이 전체 workflow를 중단시킴. 작은 모델일수록 format adherence에 "struggle significantly"가 보고됨<sup>[Small Models Big Tasks]</sup></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>1.2 ACBench 4-capability frame</h3>
+  <p>ACBench (arXiv:2505.19433)는 압축된 LLM의 agent 능력을 측정하기 위해 4가지 capability를 정의했다. 본 문서는 이 frame을 일반 agent 평가의 기준으로 차용한다.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:24%">Capability</th>
+          <th>측정 내용</th>
+          <th style="width:30%">본 taxonomy에서 관련 sub-section</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Action Execution</strong></td><td>Tool 선택과 호출, argument 생성</td><td>§2.4 Tool &amp; action-space</td></tr>
+        <tr><td><strong>Workflow Generation</strong></td><td>Multi-step plan 작성과 진행</td><td>§2.3 Agent trajectory KD, §2.6 system-level</td></tr>
+        <tr><td><strong>Long-Context Understanding</strong></td><td>누적 trajectory와 외부 자료 처리</td><td>§2.5 Context &amp; trajectory compression</td></tr>
+        <tr><td><strong>Real-world Application</strong></td><td>End-to-end 실제 사용 시나리오 정확도</td><td>§2.6 system-level + agent-level benchmark</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn-box">
+    <h4>경고: Reasoning KD는 Agent KD와 동일하지 않다</h4>
+    <p>ACBench는 reasoning teacher (DeepSeek-R1 등)를 distill한 모델이 일반 reasoning은 개선되지만 <strong>tool-use accuracy가 70% → 43.6%로 떨어지는 사례</strong>를 보고했다 (ACBench Table 8, T-Eval Overall, DS-Qwen-7B vs Qwen2.5-7B FP16). 일반 instruction following이나 수학 추론이 보존돼도 tool 선택·argument 생성·schema adherence는 별도 검증이 필요하다.</p>
+    <p>외부 tool call이 없는 agent task (예: structured extraction + schema decision만 하는 agent)에는 위 수치가 직접적인 risk가 아니다. 그러나 같은 ACBench의 Workflow Generation·Long-Context Understanding 지표는 그런 task에도 직접 관련된다.</p>
+  </div>
+
+  <h3>1.3 본 문서의 평가 frame</h3>
+  <p>각 paper card와 §3 비교 표에서 "Agent 평가 지표" 컬럼은 다음 8개 중 1~3개를 선택해 채운다 (자세한 정의는 <a href="#bench">§4</a>):</p>
+  <ul>
+    <li><code>schema validity</code> · <code>tool-call accuracy</code> · <code>task success rate</code> · <code>multi-turn robustness</code> · <code>p50/p95 latency</code> · <code>cost per successful task</code> · <code>fallback rate</code> · <code>context token reduction</code></li>
+  </ul>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ §2 Taxonomy ════════════ -->
+<div class="sec-group-title">§2 Agent LLM 경량화 방법론 Taxonomy (6 카테고리)</div>
+
+<!-- §2.1 Model-level compression -->
+<section class="method-section m1" id="m1">
+  <span class="method-label">Method Category 2.1</span>
+  <span class="sec-num">§2.1</span>
+  <h2>Model-level compression</h2>
+
+  <div class="method-overview">
+    <p><strong>무엇을 줄이는가:</strong> 모델 파라미터 수 · weight precision · serving memory · serving latency</p>
+    <p><strong>핵심 아이디어:</strong> 모델 가중치를 4~8 bit로 양자화하거나, adapter (LoRA)만 학습해 학습 가능 파라미터 수를 줄인다. 추론·서빙의 단위 비용을 직접 줄인다.</p>
+    <p><strong>적합한 상황:</strong> GPU memory 부족, serving latency가 핵심 문제, model storage 비용 절감.</p>
+  </div>
+
+  <div class="concept-diagram">
+    <div class="cd-title">Diagram D3 — Model-level compression의 비용 절감 layer</div>
+    <div class="cd-layered">
+      <div class="cd-layer l16"><span class="ly-l">FP16 base model</span><span class="ly-r">기준 100% 메모리</span></div>
+      <div class="cd-layer l8"><span class="ly-l">INT8 quantization</span><span class="ly-r">~50% 메모리</span></div>
+      <div class="cd-layer l4"><span class="ly-l">INT4 quantization (GPTQ / AWQ)</span><span class="ly-r">~25% 메모리, 3~4.5× speedup<sup>(원문 조건 명시)</sup></span></div>
+      <div class="cd-layer lora"><span class="ly-l">LoRA adapter (학습 추가분만)</span><span class="ly-r">학습 시 65B를 48GB GPU에 (QLoRA)</span></div>
+    </div>
+    <div class="cd-caption">개념도 — 실제 비율은 모델·하드웨어에 따라 다름</div>
+  </div>
+
+  <h3>대표 논문</h3>
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">GPTQ — Accurate Post-Training Quantization for Generative Pre-trained Transformers</div>
+        <span class="badge accepted">ICLR 2023</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Elias Frantar et al. · <a href="https://arxiv.org/abs/2210.17323" target="_blank">arXiv:2210.17323</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">approximate second-order information 기반 one-shot weight quantization. OBQ 기반.</div>
+        <div class="k">줄이는 대상</div><div class="v">weight precision · serving memory · latency</div>
+        <div class="k">장점</div><div class="v">175B 모델을 약 4 GPU시간 양자화 (원문 조건: A100). A100에서 3.25×, A6000에서 4.5× speedup 보고.</div>
+        <div class="k">한계</div><div class="v">3-bit 이하에선 quality drop이 task별로 다르고, agent action·schema 보존은 별도 검증 필요.</div>
+        <div class="k">평가 지표</div><div class="v">task success rate, schema validity, latency, memory usage</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">AWQ — Activation-aware Weight Quantization for LLM Compression and Acceleration</div>
+        <span class="badge accepted">MLSys 2024</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Ji Lin et al. · <a href="https://arxiv.org/abs/2306.00978" target="_blank">arXiv:2306.00978</a> · <a href="https://proceedings.mlsys.org/paper_files/paper/2024/hash/42a452cbafa9dd64e9ba4aa95cc1ef21-Abstract-Conference.html" target="_blank">MLSys Proceedings</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">activation 크기 기준으로 salient weight 1%를 식별, per-channel scaling으로 보호. 역전파 없음.</div>
+        <div class="k">줄이는 대상</div><div class="v">weight precision · memory · activation 손실</div>
+        <div class="k">장점</div><div class="v">desktop / mobile GPU 모두에서 "more than 3x speedup" 보고. mobile GPU에 70B 배포 사례.</div>
+        <div class="k">한계</div><div class="v">calibration data 분포에 일부 의존. AWQ vs GPTQ는 task별 trade-off가 다름.</div>
+        <div class="k">평가 지표</div><div class="v">schema validity, task success rate, latency, throughput</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">QLoRA — Efficient Finetuning of Quantized LLMs</div>
+        <span class="badge accepted">NeurIPS 2023</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Tim Dettmers et al. · <a href="https://arxiv.org/abs/2305.14314" target="_blank">arXiv:2305.14314</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">frozen 4-bit quantized base + LoRA adapter. NF4 + double quantization + paged optimizer.</div>
+        <div class="k">줄이는 대상</div><div class="v">training memory · fine-tuning cost</div>
+        <div class="k">장점</div><div class="v">65B 모델을 단일 48GB GPU에서 fine-tune 가능. Guanaco가 Vicuna 벤치마크에서 ChatGPT 성능의 99.3% 도달 (원문 조건 명시).</div>
+        <div class="k">한계</div><div class="v">압축 그 자체가 아니라 학습 비용 절감 도구. 서빙 시 추가 분기 (LoRA 병합 또는 서빙) 필요.</div>
+        <div class="k">평가 지표</div><div class="v">downstream task success rate, training cost, memory peak</div>
+      </div>
+    </div>
+
+  </div>
+
+  <h3>Pruning 영역 (참고)</h3>
+  <p>SparseGPT, Wanda 등 sparsification 기반 메서드는 ACBench가 quantization과 함께 평가한 영역이다. 본 taxonomy에서는 별도 paper card를 두지 않았으며, 일반적으로 quantization 대비 agent task에서의 quality 보존이 더 까다롭다고 보고된다 (ACBench 실험 결과 참조). <span class="badge uncertain">확인 필요</span> 별도 paper-deep-reader 보강 권장.</p>
+
+  <div class="warn-box">
+    <h4>Agent 관점 caveat</h4>
+    <p>Model-level compression의 효과는 분명하지만, <strong>tool-use·schema·multi-turn robustness가 자동으로 보존되지는 않는다.</strong> ACBench 등 agent-level 평가에서 별도로 측정해야 한다.</p>
+  </div>
+</section>
+
+<!-- §2.2 General KD and Preference KD -->
+<section class="method-section m2" id="m2">
+  <span class="method-label">Method Category 2.2</span>
+  <span class="sec-num">§2.2</span>
+  <h2>General KD and Preference KD</h2>
+
+  <div class="method-overview">
+    <p><strong>무엇을 줄이는가:</strong> student 모델의 파라미터 수 (teacher 행동을 작은 모델에 전이). model serving cost를 줄이되 동시에 학습 신호의 질을 다룬다.</p>
+    <p><strong>핵심 아이디어:</strong> teacher 출력을 SFT target으로 쓰거나, KL divergence를 reverse로 두거나, student가 자기 출력에서 학습 (on-policy)하거나, chosen/rejected pair로 preference를 학습한다.</p>
+    <p><strong>적합한 상황:</strong> Teacher 모델은 있고 작은 student를 만들고 싶을 때. teacher logits 접근 여부에 따라 white-box / black-box로 갈린다.</p>
+  </div>
+
+  <div class="concept-diagram">
+    <div class="cd-title">Diagram D4 — KD objective 4 갈래</div>
+    <div class="cd-branch">
+      <div class="cd-box">Forward KL<br><span style="font-weight:400;font-size:0.72rem;color:#64748b">teacher → student, coverage-seeking</span></div>
+      <div class="cd-box">Reverse KL<br><span style="font-weight:400;font-size:0.72rem;color:#64748b">student → teacher, mode-seeking (MiniLLM)</span></div>
+      <div class="cd-box">On-policy KD<br><span style="font-weight:400;font-size:0.72rem;color:#64748b">student self-generate + teacher feedback (GKD)</span></div>
+      <div class="cd-box">Preference KD<br><span style="font-weight:400;font-size:0.72rem;color:#64748b">chosen / rejected pair (DPO, PLaD, PAD)</span></div>
+    </div>
+    <div class="cd-caption">개념도 — 네 objective는 배타적이지 않고 결합 가능</div>
+  </div>
+
+  <h3>대표 논문</h3>
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">MiniLLM — Knowledge Distillation of LLMs via Reverse KL</div>
+        <span class="badge accepted">ICLR 2024</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2306.08543" target="_blank">arXiv:2306.08543</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">forward KL의 coverage-seeking 문제를 reverse KL로 대체. mode-seeking behavior로 student가 teacher 주요 모드에 집중.</div>
+        <div class="k">줄이는 대상</div><div class="v">student parameters</div>
+        <div class="k">장점</div><div class="v">760M student가 1.5B teacher를 UnNI Rouge-L (36.4 vs 33.1)에서 능가. SeqKD 대비 약 5%, SFT 대비 최대 10% 향상.</div>
+        <div class="k">한계</div><div class="v">policy gradient 기반이라 sampling 비용 증가. agent task에 직접 검증된 결과는 아님.</div>
+        <div class="k">평가 지표</div><div class="v">downstream task quality, generation diversity</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">GKD — Generalized Knowledge Distillation</div>
+        <span class="badge accepted">ICLR 2024</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Rishabh Agarwal et al. · <a href="https://arxiv.org/abs/2306.13649" target="_blank">arXiv:2306.13649</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">on-policy distillation. student가 self-generate한 sequence에 teacher가 feedback. distribution mismatch (exposure bias) 완화.</div>
+        <div class="k">줄이는 대상</div><div class="v">student parameters · exposure bias 누적 오류</div>
+        <div class="k">장점</div><div class="v">RLHF와의 결합이 자연스럽다. Agent decision task에서 student가 자기 출력에서 학습하는 구조는 자연스러운 매핑.</div>
+        <div class="k">한계</div><div class="v">on-policy sampling 비용. teacher logits 접근 필요.</div>
+        <div class="k">평가 지표</div><div class="v">multi-turn robustness, downstream success rate</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">DPO — Direct Preference Optimization (Your Language Model is Secretly a Reward Model)</div>
+        <span class="badge accepted">NeurIPS 2023</span>
+        <span class="badge direct">직접 실험 근거</span>
+        <span class="badge gh"><a href="https://github.com/eric-mitchell/direct-preference-optimization" target="_blank" style="color:#fff;text-decoration:none">GitHub</a></span>
+      </div>
+      <div class="pc-meta">Rafailov, Sharma, Mitchell, Manning, Ermon, Finn · <a href="https://arxiv.org/abs/2305.18290" target="_blank">arXiv:2305.18290</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">RLHF의 reward model + PPO 두 단계를 closed-form으로 한 단계 직접 최적화. chosen/rejected pair만 필요.</div>
+        <div class="k">줄이는 대상</div><div class="v">RLHF training cost · reward model 학습 단계</div>
+        <div class="k">장점</div><div class="v">reward model 학습 없이 preference align 가능. compression 도구가 아니라 preference 학습 도구지만, preference KD의 기반.</div>
+        <div class="k">한계</div><div class="v">DPO 자체는 compression이 아니다. chosen/rejected pair의 일관성이 학습 신호의 상한.</div>
+        <div class="k">평가 지표</div><div class="v">preference win-rate, downstream task success</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">PLaD — Preference-based LLM Distillation with Pseudo-Preference Pairs</div>
+        <span class="badge accepted">ACL 2024 Findings</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Rongzhi Zhang et al. · <a href="https://arxiv.org/abs/2406.02886" target="_blank">arXiv:2406.02886</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">teacher output을 chosen, student output을 rejected로 둔 pseudo-preference pair로 ranking loss 학습.</div>
+        <div class="k">줄이는 대상</div><div class="v">student parameters · capacity gap에 따른 학습 신호 손실</div>
+        <div class="k">장점</div><div class="v">teacher-student capacity gap이 클 때 단순 sequence mimicry보다 효과적. 외부 preference annotation 불요.</div>
+        <div class="k">한계</div><div class="v">teacher output이 항상 chosen이라는 가정. agent action 단위 preference의 적합성은 별도 검증.</div>
+        <div class="k">평가 지표</div><div class="v">downstream win-rate, task success rate</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">PAD — Preference-Aligned Distillation</div>
+        <span class="badge venue-check">venue 확인 필요</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2502.14272" target="_blank">arXiv:2502.14272</a> · venue 확인 필요</div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">3단계 (high-temp sampling → intrinsic preference 평가 → align). AlpacaEval 2 / Arena-Hard에서 20%+ 향상 보고.</div>
+        <div class="k">줄이는 대상</div><div class="v">preference 데이터 수집 비용 · alignment 단계</div>
+        <div class="k">장점</div><div class="v">MT-Bench에서 Gemma student가 teacher를 능가하는 사례 보고.</div>
+        <div class="k">한계</div><div class="v">venue 확인 필요. 수치는 원문 조건 (모델·데이터셋) 명시 하에 인용.</div>
+        <div class="k">평가 지표</div><div class="v">preference win-rate, task quality</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">DPKD — Distillation with Implicit Reward + KL</div>
+        <span class="badge venue-check">venue 확인 필요</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Yixing Li et al. · <a href="https://arxiv.org/abs/2406.19774" target="_blank">arXiv:2406.19774</a> · venue 확인 필요</div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">KL divergence만으로는 capacity gap이 큰 KD에서 학습 신호 부족. implicit reward를 결합.</div>
+        <div class="k">줄이는 대상</div><div class="v">capacity gap에 따른 학습 신호 손실</div>
+        <div class="k">장점</div><div class="v">MiniLLM (reverse KL) + DPKD (implicit reward) 결합 가능. agent decision task에 implicit reward signal 정의가 자연스러움.</div>
+        <div class="k">한계</div><div class="v">venue 확인 필요. implicit reward 설계가 task-specific.</div>
+        <div class="k">평가 지표</div><div class="v">downstream task quality, preference win-rate</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Every Expert Matters — Effective KD for MoE LLMs</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Gyeongman Kim, Gyouk Chu, Eunho Yang · <a href="https://arxiv.org/abs/2502.12947" target="_blank">arXiv:2502.12947</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">MoE teacher의 non-activated expert도 가치 있는 지식을 갖는다는 관찰. KA (Knowledge Augmentation) + SAR (Student-Aware Router) 두 방법 제안.</div>
+        <div class="k">줄이는 대상</div><div class="v">MoE → dense student의 capacity gap (activated expert만 활용하는 표준 KD의 한계)</div>
+        <div class="k">장점</div><div class="v">MoE teacher (예: Qwen3-235B-A22B처럼 token당 22B 활성)에서 더 많은 expert 지식을 전이.</div>
+        <div class="k">한계</div><div class="v">KA는 inference 시 추가 sampling, SAR는 router 학습 loop 필요. venue 미확정.</div>
+        <div class="k">평가 지표</div><div class="v">student downstream quality, KD training cost</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="warn-box">
+    <h4>주의 — Reasoning KD가 Agent KD를 보장하지 않는다</h4>
+    <p>본 §2.2의 방법론은 모두 일반 KD / preference 학습이 주 검증 영역이다. 수학 추론이나 일반 instruction following이 보존되어도, agent의 <strong>tool 선택 / argument 생성 / schema adherence / multi-turn robustness</strong>는 별도 평가가 필요하다 (§1.2의 ACBench 경고 참조).</p>
+  </div>
+</section>
+
+<!-- §2.3 Agent trajectory distillation -->
+<section class="method-section m3" id="m3">
+  <span class="method-label">Method Category 2.3</span>
+  <span class="sec-num">§2.3</span>
+  <h2>Agent trajectory distillation</h2>
+
+  <div class="method-overview">
+    <p><strong>무엇을 줄이는가:</strong> student의 파라미터 수 + agent reasoning/action behavior의 표현 격차. final answer만이 아니라 reason / action / observation / tool result trajectory 자체를 전이.</p>
+    <p><strong>핵심 아이디어:</strong> teacher agent가 실제로 어떻게 step을 밟아가는지를 student에 옮긴다. final answer 매칭만으로는 작은 모델의 workflow 안정성이 보장되지 않기 때문이다.</p>
+    <p><strong>적합한 상황:</strong> Multi-step planning이 필요한 agent. tool-use가 있거나, 누적 reasoning이 필요한 task.</p>
+  </div>
+
+  <div class="concept-diagram">
+    <div class="cd-title">Diagram D5 — Trajectory distillation (final answer가 아닌 행동 전이)</div>
+    <div class="cd-horizontal">
+      <div class="cd-box teacher">Teacher Agent<br><span style="font-weight:400;font-size:0.72rem">큰 LLM</span></div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box trace">Reason → Act → Observe → Reason → Act<br><span style="font-weight:400;font-size:0.72rem">[REASON] / [ACT] segment</span></div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box student">Small Agent<br><span style="font-weight:400;font-size:0.72rem">segment-specific loss</span></div>
+    </div>
+    <div class="cd-caption">개념도 — Structured Agent Distillation 계열의 핵심 아이디어</div>
+  </div>
+
+  <h3>대표 논문</h3>
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Distilling LLM Agent into Small Models with Retrieval and Code Tools</div>
+        <span class="badge accepted">NeurIPS 2025 Spotlight</span>
+        <span class="badge direct">직접 실험 근거</span>
+        <span class="badge gh"><a href="https://github.com/Nardien/agent-distillation" target="_blank" style="color:#fff;text-decoration:none">GitHub</a></span>
+      </div>
+      <div class="pc-meta">Minki Kang, Jongwon Jeong, Seanie Lee, Jaewoong Cho, Sung Ju Hwang · <a href="https://arxiv.org/abs/2505.17612" target="_blank">arXiv:2505.17612</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">first-thought prefix (teacher trajectory 품질 향상) + self-consistent action generation (test-time robustness)으로 teacher agent의 전체 task-solving behavior를 small model에 전이.</div>
+        <div class="k">줄이는 대상</div><div class="v">student parameters · CoT 단순 모방의 한계</div>
+        <div class="k">장점</div><div class="v">0.5B/1.5B/3B student가 1.5B/3B/7B CoT-finetuned 모델과 경쟁 (원문 조건: 8개 factual + mathematical reasoning task).</div>
+        <div class="k">한계</div><div class="v">retrieval + code tool이라는 특정 tool 환경에 specialized. tool-free agent task에는 외삽이 필요.</div>
+        <div class="k">평가 지표</div><div class="v">task success rate, tool-call accuracy, multi-turn robustness</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Structured Agent Distillation</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Jun Liu et al. · <a href="https://arxiv.org/abs/2505.13820" target="_blank">arXiv:2505.13820</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">trajectory를 <code>[REASON]</code>과 <code>[ACT]</code> span으로 분리, 각각 segment-specific KL loss로 학습.</div>
+        <div class="k">줄이는 대상</div><div class="v">reasoning fidelity와 action consistency를 별도 보존</div>
+        <div class="k">장점</div><div class="v">ALFWorld, HotPotQA-ReAct, WebShop에서 평가. token-level / imitation baseline 대비 task success rate 향상 보고.</div>
+        <div class="k">한계</div><div class="v">[ACT] 정의가 외부 tool call 한정. schema decision 같은 action에는 재해석 필요.</div>
+        <div class="k">평가 지표</div><div class="v">task success rate, action consistency, reasoning fidelity</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Sub-goal Distillation for Long-horizon Embodied Agents</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2405.02749" target="_blank">arXiv:2405.02749</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">770M student가 추론 시 LLM 호출 없이 fixed cost로 동작. sub-goal 단위로 trajectory를 분해해 학습.</div>
+        <div class="k">줄이는 대상</div><div class="v">LLM call count (inference time)</div>
+        <div class="k">장점</div><div class="v">ScienceWorld에서 elementary action imitation 대비 16.7% absolute 개선.</div>
+        <div class="k">한계</div><div class="v">elementary action 정의가 환경 의존적.</div>
+        <div class="k">평가 지표</div><div class="v">task success rate, inference cost (fixed)</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">AgentTuning — Enabling Generalized Agent Abilities for LLMs</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2310.12823" target="_blank">arXiv:2310.12823</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">AgentInstruct 데이터셋 + hybrid instruction-tuning (agent + general data). catastrophic forgetting 회피.</div>
+        <div class="k">줄이는 대상</div><div class="v">agent 학습 데이터 부족 · 일반 능력 손실</div>
+        <div class="k">장점</div><div class="v">AgentLM-70B가 unseen agent task에서 GPT-3.5-turbo와 comparable.</div>
+        <div class="k">한계</div><div class="v">tool-use 중심 데이터셋. tool-free task에는 직접 적용 어려움.</div>
+        <div class="k">평가 지표</div><div class="v">unseen agent task success rate, general task retention</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Agent-FLAN — Designing Data and Methods of Effective Agent Tuning for LLMs</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2403.12881" target="_blank">arXiv:2403.12881</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">"different learning speeds" 관찰. 능력별 (retrieval / instruction following / reasoning / understanding) 학습 속도 차이가 corpus mix에서 균형을 깬다. negative sample로 hallucination 억제.</div>
+        <div class="k">줄이는 대상</div><div class="v">agent SFT 데이터의 불균형으로 인한 학습 손실</div>
+        <div class="k">장점</div><div class="v">Llama2-7B 기준 기존 대비 3.5% 향상 (원문 조건 명시).</div>
+        <div class="k">한계</div><div class="v">"빠른 능력 과적합" 표현 등 일부는 본문 §3 확인 권장 (verification.md 참조). <span class="badge uncertain">본문 확인 필요</span></div>
+        <div class="k">평가 지표</div><div class="v">multi-capability balance, hallucination rate</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">ACBench — Can Compressed LLMs Truly Act? (KD failure case로 인용)</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2505.19433" target="_blank">arXiv:2505.19433</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">압축 LLM의 agent 능력을 4-capability frame으로 평가. KD 실패 케이스 정량화.</div>
+        <div class="k">줄이는 대상</div><div class="v">(평가 frame — 직접 줄이지 않음)</div>
+        <div class="k">장점</div><div class="v">4-bit quantization이 workflow generation을 1~3% 손실로 보존하지만, reasoning-teacher KD는 tool-use를 70% → 43.6%로 떨어뜨릴 수 있음 (Table 8 기준).</div>
+        <div class="k">한계</div><div class="v">tool-use 수치는 tool-calling agent 한정. tool 없는 agent에는 직접 risk 아님.</div>
+        <div class="k">평가 지표</div><div class="v">ACBench 4-capability + ERank / Top-k Ranking Correlation / Energy</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- §2.4 Tool-use and action-space compression -->
+<section class="method-section m4" id="m4">
+  <span class="method-label">Method Category 2.4</span>
+  <span class="sec-num">§2.4</span>
+  <h2>Tool-use and action-space compression</h2>
+
+  <div class="method-overview">
+    <p><strong>무엇을 줄이는가:</strong> tool schema token (prompt 입력 비용) · action space 크기 · tool 선택 난이도.</p>
+    <p><strong>핵심 아이디어:</strong> agent 비용은 모델 크기만이 아니라 prompt에 매번 들어가는 tool schema에도 있다. tool selection (필요한 tool만), internalization (학습으로 모델 가중치에 흡수), module reuse (이미 만든 단위 재사용) 세 가지가 서로 다른 비용을 줄인다.</p>
+    <p><strong>적합한 상황:</strong> tool catalog이 크다 (수십~수백). tool 호출이 매 step마다 필요. prompt token 비용이 모델 호출 비용을 압도한다.</p>
+  </div>
+
+  <div class="concept-diagram">
+    <div class="cd-title">Diagram D6 — Tool schema compression: Before / After</div>
+    <div class="cd-split">
+      <div class="cd-col before">
+        <h4>Before</h4>
+        <p>User query + <strong>전체 tool catalog</strong> (수십~수백 schema) + 긴 description<br><br>→ prompt token의 대부분을 tool schema가 차지 (사례: 입력의 82.6%<sup>[Internalizing Tool Knowledge]</sup>)</p>
+      </div>
+      <div class="cd-col after">
+        <h4>After</h4>
+        <p>① <strong>tool selection</strong>: User query + 관련 tool subset만<br>② <strong>internalization</strong>: User query + (tool 지식은 모델 가중치 안)<br>③ <strong>module reuse</strong>: 같은 sub-task는 캐시된 module 호출</p>
+      </div>
+    </div>
+    <div class="cd-caption">개념도 — 세 접근은 prompt token / action space / 학습 비용 trade-off가 다름</div>
+  </div>
+
+  <h3>대표 논문</h3>
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Internalizing Tool Knowledge in Small Language Models via QLoRA Fine-Tuning</div>
+        <span class="badge preprint">arXiv preprint (2026-05)</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Yuval Shemla et al. · <a href="https://arxiv.org/abs/2605.17774" target="_blank">arXiv:2605.17774</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">tool description이 입력의 다수를 차지한다는 관찰. QLoRA fine-tuning으로 tool 지식을 모델 가중치에 내재화.</div>
+        <div class="k">줄이는 대상</div><div class="v">tool schema token (prompt 입력)</div>
+        <div class="k">장점</div><div class="v">Gemma 4 E4B (AT-F1 0.65, Judge 3.88), Qwen3-4B에서 62% 메모리 절감과 2.5× 속도 보고 (원문 조건: A100 단일 GPU, 총 ~$62). QLoRA recipe (r=32, α=64, dropout 0.05, lr 2e-4) 공개.</div>
+        <div class="k">한계</div><div class="v">tool 정의가 바뀌면 재학습 또는 재정렬 필요. agent task의 일반화는 별도 검증.</div>
+        <div class="k">평가 지표</div><div class="v">prompt token reduction, tool-call accuracy, memory, throughput</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Less is More — Tool Selection for Edge Agentic LLMs</div>
+        <span class="badge accepted">DATE 2025</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Varatheepan Paramanayakam et al. · <a href="https://arxiv.org/abs/2411.15399" target="_blank">arXiv:2411.15399</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">현재 요청과 관련된 tool subset만 prompt에 제공. fine-tuning 없이 동작.</div>
+        <div class="k">줄이는 대상</div><div class="v">action space · prompt token · 실행 시간</div>
+        <div class="k">장점</div><div class="v">BFCL, GeoEngine 벤치마크 (edge hardware)에서 execution time 최대 70% 감소, power consumption 최대 40% 감소. agentic success rate 향상 보고.</div>
+        <div class="k">한계</div><div class="v">router가 필요한 tool을 누락하면 task 실패. tool selection model 자체의 정확도가 새로운 risk.</div>
+        <div class="k">평가 지표</div><div class="v">prompt token reduction, tool selection recall, agentic success rate, latency</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">AgentDistill — Training-Free Agent Distillation with Generalizable MCP Boxes</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2506.14728" target="_blank">arXiv:2506.14728</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">training-free. MCP module을 재사용 가능한 단위로 만들고 student가 호출해 사용.</div>
+        <div class="k">줄이는 대상</div><div class="v">학습 비용 · 반복 sub-task 계산</div>
+        <div class="k">장점</div><div class="v">생물의학·수학 벤치마크에서 OctoTools 등과 비교 실험.</div>
+        <div class="k">한계</div><div class="v">MCP module이 잘 정의된 환경에 의존. module 카탈로그 관리 비용이 새로운 운영 비용.</div>
+        <div class="k">평가 지표</div><div class="v">task success rate, module reuse rate</div>
+      </div>
+    </div>
+
+  </div>
+
+  <h3>세 접근의 비교</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th style="width:24%">접근</th><th>줄이는 대상</th><th>효과</th><th>위험</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Tool internalization</strong></td><td>Tool schema token</td><td>Prompt 길이 감소, 같은 tool 반복 호출 비용 최소화</td><td>Tool update 시 재학습 또는 재정렬 필요. stale tool knowledge.</td></tr>
+        <tr><td><strong>Tool selection</strong></td><td>Action space (prompt에 들어가는 tool 수)</td><td>Tool 선택 오류 감소 가능, 입력 token 절감</td><td>Router가 필요한 tool을 누락하면 task 실패.</td></tr>
+        <tr><td><strong>Module reuse</strong></td><td>반복 sub-task 계산</td><td>학습 없이 caching으로 cost 절감</td><td>Module 카탈로그 관리 비용. module 일관성 보장 필요.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- §2.5 Context / trajectory compression -->
+<section class="method-section m5" id="m5">
+  <span class="method-label">Method Category 2.5</span>
+  <span class="sec-num">§2.5</span>
+  <h2>Context, memory, and trajectory compression</h2>
+
+  <div class="method-overview">
+    <p><strong>무엇을 줄이는가:</strong> trajectory context (누적 observation / action history / intermediate result) · memory token · long-context KV cost.</p>
+    <p><strong>핵심 아이디어:</strong> agent는 step이 늘수록 context가 누적된다. 모델이 작아도 context가 길면 비용이 남는다. useless / redundant / expired 정보를 식별해 제거하거나, observation + history를 공동 압축한다.</p>
+    <p><strong>적합한 상황:</strong> multi-step / long-horizon agent. 10-step 이상에서 마지막 step input이 첫 step보다 훨씬 긴 경우.</p>
+  </div>
+
+  <div class="concept-diagram">
+    <div class="cd-title">Diagram D7 — Trajectory waste 3분류 + 압축 효과</div>
+    <div class="cd-tags">
+      <span class="cd-tag useless">useless — 현재 task 무관 (verbose log, irrelevant output)</span>
+      <span class="cd-tag redundant">redundant — 이미 앞 step에서 처리된 정보 반복</span>
+      <span class="cd-tag expired">expired — 한때 필요했으나 현 목표엔 더 이상 필요 없음</span>
+      <span class="cd-tag kept">kept — 현재 목표 달성에 필요한 정보</span>
+    </div>
+    <p style="font-size:0.82rem;color:#475569;margin:6px 0 0;text-align:center">AgentDiet (FSE 2026)이 보고: 입력 토큰 39.9~59.7% 감소, 전체 연산 비용 21.1~35.9% 감소 (원문 조건: 2개 LLM, 2개 벤치마크, top-performing coding agent).</p>
+    <div class="cd-caption">개념도 — sliding-window reflection module의 세부 설계는 본문 확인 필요 [Needs verification]</div>
+  </div>
+
+  <h3>대표 논문</h3>
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">AgentDiet — Reducing Cost of LLM Agents with Trajectory Reduction</div>
+        <span class="badge accepted">FSE 2026 (accepted)</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Yuan-An Xiao, Pengfei Gao, Chao Peng, Yingfei Xiong · <a href="https://arxiv.org/abs/2509.23586" target="_blank">arXiv:2509.23586</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">trajectory waste 3종 (useless / redundant / expired) 분류 후 inference-time 자동 제거. 학습·재훈련 불요.</div>
+        <div class="k">줄이는 대상</div><div class="v">trajectory context · 입력 토큰</div>
+        <div class="k">장점</div><div class="v">입력 토큰 39.9~59.7% 감소, 전체 연산 비용 21.1~35.9% 감소 (원문 조건 명시), agent 성능 유지.</div>
+        <div class="k">한계</div><div class="v">"sliding-window reflection module" 세부 설계는 abstract에서 확인 불가, 본문 §3 필요 <span class="badge uncertain">Needs verification</span>.</div>
+        <div class="k">평가 지표</div><div class="v">input token reduction, total compute reduction, task success rate retention</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">ACON — Optimizing Context Compression for Long-horizon LLM Agents</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Minki Kang et al. · <a href="https://arxiv.org/abs/2510.00615" target="_blank">arXiv:2510.00615</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">observation + interaction history 동시 압축. failure trajectory 분석으로 가이드라인 업데이트. 소형 compressor distillation.</div>
+        <div class="k">줄이는 대상</div><div class="v">peak context token · long-horizon 누적 비용</div>
+        <div class="k">장점</div><div class="v">AppWorld, OfficeBench, Multi-objective QA에서 peak token 26~54% 감소. distill 후 95%+ 정확도 보존. 소형 LM agent에서 최대 46% 성능 향상.</div>
+        <div class="k">한계</div><div class="v">compressor 자체가 추가 학습·운영 요소. failure trajectory 수집 파이프라인 필요.</div>
+        <div class="k">평가 지표</div><div class="v">peak token reduction, accuracy retention, long-horizon success rate</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note-box">
+    <h4>이 카테고리가 독립 축인 이유</h4>
+    <p>모델을 아무리 작게 만들어도 context가 100K 토큰을 넘어가면 비용이 남는다. §2.1~§2.3은 "모델 자체"를 다루고, §2.4는 "tool 부분 prompt"를 다루는데, §2.5는 "step이 지날수록 누적되는 trajectory"라는 독립 축이다. agent system cost 함수에서 이 항을 따로 분리하지 않으면 §2.1만으로는 최적화가 막힌다.</p>
+  </div>
+</section>
+
+<!-- §2.6 Serving / Runtime-level Optimization -->
+<section class="method-section m7" id="m7">
+  <span class="method-label">Method Category 2.6</span>
+  <span class="sec-num">§2.6</span>
+  <h2>Serving / Runtime-level Optimization</h2>
+
+  <div class="method-overview">
+    <p><strong>무엇을 줄이는가:</strong> KV cache memory waste · 반복 prefix 처리 · context loading delay · structured generation execution overhead</p>
+    <p><strong>핵심 아이디어:</strong> 이 계열은 모델을 작게 만드는 방법이 아니다. 큰 모델(예: Qwen3-235B)을 계속 호출해야 하는 경우, serving runtime에서 KV cache, 반복 prefix, context loading, structured generation 실행 비용을 줄인다.</p>
+    <p><strong>적합한 상황:</strong> 모델 교체 없이 inference cost를 낮추고 싶을 때. 같은 instruction · schema · persona · parent context가 반복되는 multi-call workflow. 긴 context를 캐시해 재사용할 수 있는 architecture.</p>
+  </div>
+
+  <div class="concept-diagram">
+    <div class="cd-title">Diagram D10 — Serving optimization 3축 (KV cache 관리 · prefix 재사용 · cache 압축·streaming)</div>
+    <div class="cd-horizontal">
+      <div class="cd-box runtime">vLLM<br><span style="font-weight:400;font-size:0.72rem">PagedAttention (KV cache block 관리)</span></div>
+      <div class="cd-arrow">+</div>
+      <div class="cd-box runtime">SGLang<br><span style="font-weight:400;font-size:0.72rem">RadixAttention (call 간 prefix KV 재사용)</span></div>
+      <div class="cd-arrow">+</div>
+      <div class="cd-box cache">CacheGen<br><span style="font-weight:400;font-size:0.72rem">KV cache 압축 + streaming</span></div>
+    </div>
+    <div class="cd-caption">개념도 — 세 메서드는 layered: vLLM이 baseline, SGLang은 multi-call workflow에 맞춤, CacheGen은 KV cache 저장/전송이 따로 있는 architecture에 의미.</div>
+  </div>
+
+  <h3>대표 논문</h3>
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">vLLM — Efficient Memory Management for LLM Serving with PagedAttention</div>
+        <span class="badge accepted">SOSP 2023</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin Zheng, Cody Hao Yu, Joseph E. Gonzalez, Hao Zhang, Ion Stoica · <a href="https://arxiv.org/abs/2309.06180" target="_blank">arXiv:2309.06180</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">PagedAttention — KV cache를 OS paging처럼 block 단위로 관리. KV cache memory fragmentation과 중복을 줄여 throughput 향상.</div>
+        <div class="k">줄이는 대상</div><div class="v">KV cache memory waste · serving throughput bottleneck</div>
+        <div class="k">필요 조건</div><div class="v">runtime이 PagedAttention 호환 (vLLM 또는 동일 인터페이스 supporting runtime)</div>
+        <div class="k">장점</div><div class="v">"near-zero waste in KV cache memory" (원문). 모델 그대로 두고 throughput 향상.</div>
+        <div class="k">한계</div><div class="v"><strong>모델 quality나 action accuracy를 개선하는 방법은 아니다.</strong> KD나 model compression이 아니라 runtime/system 최적화.</div>
+        <div class="k">우리 workflow 연결</div><div class="v">235B를 줄이는 방법은 아니지만, 반복 LLM 호출이 많은 workflow에서 serving baseline으로 중요. <span class="badge extrap">우리 프로젝트 외삽</span></div>
+        <div class="k">평가 지표</div><div class="v">tokens/sec throughput · KV cache utilization · p95 latency · memory peak</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">SGLang — Efficient Execution of Structured Language Model Programs</div>
+        <span class="badge accepted">NeurIPS 2024</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Lianmin Zheng, Liangsheng Yin, Zhiqiang Xie, Chuyue Sun, Jeff Huang, Cody Hao Yu, Shiyi Cao, Christos Kozyrakis, Ion Stoica, Joseph E. Gonzalez, Clark Barrett, Ying Sheng · <a href="https://arxiv.org/abs/2312.07104" target="_blank">arXiv:2312.07104</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">RadixAttention — 여러 generation call 간 KV cache 재사용. structured LM program (multi-call, schema 제약, parallel branch) 실행 가속. compressed finite state machine.</div>
+        <div class="k">줄이는 대상</div><div class="v">repeated prefix processing · multi-call generation overhead · structured LM program execution overhead</div>
+        <div class="k">필요 조건</div><div class="v">SGLang runtime. 워크플로우에 실제 공유 가능한 prefix(같은 instruction / schema / persona / parent context)가 존재해야 이득.</div>
+        <div class="k">장점</div><div class="v">multi-call workflow에서 prefix를 다시 prefill하지 않아 latency 감소 가능.</div>
+        <div class="k">한계</div><div class="v">prefix 공유 정도와 runtime 구조에 따라 실제 이득이 크게 달라짐. <strong>특정 workflow에 직접 효과를 단정할 수 없다.</strong></div>
+        <div class="k">우리 workflow 연결</div><div class="v">같은 instruction · schema · persona · parent context가 반복되는 agent workflow와 <strong>연결 가능성</strong>. Step 4 같은 반복 비교 구조와 연결해 볼 수 있으나, 이득 보장은 아님. <span class="badge extrap">적용 가능성 — 검증 필요</span></div>
+        <div class="k">평가 지표</div><div class="v">prefix cache hit rate · per-call latency · total throughput</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">CacheGen — KV Cache Compression and Streaming for Fast LLM Serving</div>
+        <span class="badge accepted">SIGCOMM 2024</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Yuhan Liu, Hanchen Li, Yihua Cheng, Siddhant Ray, Yuyang Huang, Qizheng Zhang, Kuntai Du, Jiayi Yao, Shan Lu, Ganesh Ananthanarayanan, Michael Maire, Henry Hoffmann, Ari Holtzman, Junchen Jiang · <a href="https://arxiv.org/abs/2310.07240" target="_blank">arXiv:2310.07240</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">재사용할 KV cache를 압축 + streaming. 긴 context를 다시 prefill하지 않고 cache loading delay를 줄이는 방향.</div>
+        <div class="k">줄이는 대상</div><div class="v">KV cache transfer size · context loading delay · repeated long-context processing cost</div>
+        <div class="k">필요 조건</div><div class="v">KV cache를 <strong>저장 · 전송 · 재사용</strong>하는 serving architecture가 있어야 의미가 있음.</div>
+        <div class="k">장점</div><div class="v">"KV cache size 3.5~4.3× 감소, fetch+process delay 3.2~3.7× 감소" (원문 보고, 조건 명시).</div>
+        <div class="k">한계</div><div class="v"><strong>단순히 prompt가 길다는 이유만으로 적용되는 것은 아니다.</strong> KV cache 저장/전송 layer가 architecture에 있어야 함.</div>
+        <div class="k">우리 workflow 연결</div><div class="v">긴 user profile · parent context · retrieved context를 반복 재사용하는 구조에서 <strong>관련성</strong>이 있음. <span class="badge extrap">조건부 검토</span></div>
+        <div class="k">평가 지표</div><div class="v">KV cache size · cache load delay · end-to-end TTFT (time-to-first-token)</div>
+      </div>
+    </div>
+
+  </div>
+
+  <h3>비교 요약</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>논문</th><th>Venue</th><th>핵심 방법</th><th>줄이는 비용</th><th>Agent workflow와의 연결</th><th>주의점</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>vLLM</td><td>SOSP 2023</td><td>PagedAttention (KV cache block 관리)</td><td>KV cache waste · throughput bottleneck</td><td>반복 LLM 호출 workflow의 serving baseline</td><td>모델 quality 개선 아님 — runtime 최적화</td></tr>
+        <tr><td>SGLang</td><td>NeurIPS 2024</td><td>RadixAttention · structured LM program</td><td>repeated prefix · multi-call overhead</td><td>같은 instruction/schema/persona/parent context 반복 시 연결 가능성</td><td>실제 이득은 prefix 공유 정도와 runtime 구조에 의존</td></tr>
+        <tr><td>CacheGen</td><td>SIGCOMM 2024</td><td>KV cache 압축 + streaming</td><td>cache transfer size · context loading delay</td><td>긴 user profile / parent context 반복 재사용 시 관련성</td><td>KV cache 저장·전송 layer가 있는 architecture에서만 의미</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn-box">
+    <h4>이 카테고리의 분류 원칙</h4>
+    <p>vLLM, SGLang, CacheGen은 <strong>KD나 모델 압축 논문이 아니다.</strong> "모델을 작게 만드는 방법"(§2.1~§2.3)과 혼동하지 않는다. 큰 모델을 계속 호출해야 할 때 serving runtime cost를 줄이는 방법이다. 모델 호출 횟수 자체를 줄이는 §2.8 system-level orchestration과도 다른 축이다.</p>
+  </div>
+</section>
+
+<!-- §2.7 Decoding Optimization -->
+<section class="method-section m8" id="m8">
+  <span class="method-label">Method Category 2.7</span>
+  <span class="sec-num">§2.7</span>
+  <h2>Decoding Optimization</h2>
+
+  <div class="method-overview">
+    <p><strong>무엇을 줄이는가:</strong> autoregressive decoding step 수 · token generation latency · sequential decoding dependency.</p>
+    <p><strong>핵심 아이디어:</strong> KD와 quantization이 모델 자체를 줄이는 방법이라면, decoding optimization은 같은 모델의 autoregressive generation을 빠르게 하는 방법이다. output distribution을 유지하면서 한 forward로 여러 token을 만들거나 검증한다.</p>
+    <p><strong>적합한 상황:</strong> output length가 길어 decode latency가 병목인 workflow. 모델 교체 없이 latency를 줄이고 싶을 때. (반대로 output이 매우 짧은 schema decision agent에서는 효과가 제한될 수 있음.)</p>
+  </div>
+
+  <div class="concept-diagram">
+    <div class="cd-title">Diagram D11 — Speculative decoding의 일반 형태 (draft propose + target verify)</div>
+    <div class="cd-horizontal">
+      <div class="cd-box draft">Draft model<br><span style="font-weight:400;font-size:0.72rem">small, fast<br>k tokens 제안</span></div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box token">candidate tokens<br><span style="font-weight:400;font-size:0.72rem">t₁, t₂, …, tₖ</span></div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box verify">Target model<br><span style="font-weight:400;font-size:0.72rem">parallel verify<br>output distribution 보존</span></div>
+    </div>
+    <div class="cd-caption">개념도 — Medusa는 draft를 multi-head로, EAGLE은 feature-level autoregression으로, Lookahead는 draft model 없이, MTP는 native multi-token prediction으로 변형. 모두 "output distribution 동일성"을 유지한다.</div>
+  </div>
+
+  <h3>대표 방법</h3>
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Speculative Decoding (Fast Inference from Transformers via Speculative Decoding)</div>
+        <span class="badge accepted">ICML 2023 (Oral)</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Yaniv Leviathan, Matan Kalman, Yossi Matias · <a href="https://arxiv.org/abs/2211.17192" target="_blank">arXiv:2211.17192</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">작은 draft model이 여러 token 후보 제안 → 큰 target model이 병렬 검증. output distribution을 그대로 유지하면서 decoding step 수를 줄임.</div>
+        <div class="k">줄이는 대상</div><div class="v">autoregressive decoding step 수 · token generation latency</div>
+        <div class="k">필요 조건</div><div class="v">draft model + target model 조합. draft가 target과 일정 수준 align되어야 acceptance rate 확보.</div>
+        <div class="k">장점</div><div class="v">"2X-3X 가속, output 변경 없음" (T5-XXL 기준, 원문 조건 명시).</div>
+        <div class="k">한계</div><div class="v">acceptance rate가 낮으면 이득 감소. draft↔target 조합 설계 필요.</div>
+        <div class="k">Qwen3-235B 관점</div><div class="v"><strong>A안:</strong> Qwen3-235B target + Qwen3-4B/8B draft.<br><strong>B안:</strong> KD student target + 더 작은 Qwen3-0.6B/1.7B draft.<br>단, 235B target은 verifier forward 자체가 무거우므로 실제 이득은 <strong>acceptance rate · batch 환경 · serving runtime</strong>에 따라 달라진다.</div>
+        <div class="k">평가 지표</div><div class="v">tokens/sec · acceptance rate · p95 latency</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Medusa — Simple LLM Inference Acceleration Framework with Multiple Decoding Heads</div>
+        <span class="badge venue-check">venue 확인 필요</span>
+        <span class="badge direct">직접 실험 근거</span>
+        <span class="badge condition">조건부 검토 대상</span>
+      </div>
+      <div class="pc-meta">Tianle Cai, Yuhong Li, Zhengyang Geng, Hongwu Peng, Jason D. Lee, Deming Chen, Tri Dao · <a href="https://arxiv.org/abs/2401.10774" target="_blank">arXiv:2401.10774</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">별도 draft model 대신 backbone LLM에 multiple decoding heads 추가. 여러 future token을 병렬 예측. tree-based attention으로 후보 검증.</div>
+        <div class="k">줄이는 대상</div><div class="v">decoding step 수</div>
+        <div class="k">필요 조건</div><div class="v"><strong>Medusa head 학습 또는 fine-tuning 필요.</strong> target model 구조나 training pipeline을 수정할 수 있어야 의미가 큼.</div>
+        <div class="k">장점</div><div class="v">"2.2x~3.6x 가속" 보고 (원문 조건 명시). 별도 draft model 유지 부담을 줄임.</div>
+        <div class="k">한계</div><div class="v">Head 학습이 필요해 모델·학습 파이프라인 수정이 가능한 환경에서만. published venue 직접 확인 미완료.</div>
+        <div class="k">Qwen3-235B 관점</div><div class="v">235B 위에 Medusa head를 학습하는 것은 inference framework·training pipeline 수정이 가능한 환경에서만 검토 — <strong>조건부 검토 대상</strong>.</div>
+        <div class="k">평가 지표</div><div class="v">tokens/sec · acceptance rate · head training cost</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">EAGLE — Speculative Sampling Requires Rethinking Feature Uncertainty</div>
+        <span class="badge venue-check">venue 확인 필요</span>
+        <span class="badge direct">직접 실험 근거</span>
+        <span class="badge condition">조건부 검토 대상</span>
+      </div>
+      <div class="pc-meta">Yuhui Li, Fangyun Wei, Chao Zhang, Hongyang Zhang · <a href="https://arxiv.org/abs/2401.15077" target="_blank">arXiv:2401.15077</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">token level autoregression 대신 second-to-top-layer <strong>feature level autoregression</strong>을 사용. speculative sampling을 feature prediction으로 재구성.</div>
+        <div class="k">줄이는 대상</div><div class="v">decoding latency · throughput bottleneck</div>
+        <div class="k">필요 조건</div><div class="v">별도 speculator(EAGLE 모델) 학습 또는 runtime 지원이 필요할 수 있음.</div>
+        <div class="k">장점</div><div class="v">"LLaMA2-Chat 70B에서 latency speedup 2.7x~3.5x" (원문 조건 명시). vLLM이 EAGLE-based draft를 지원.</div>
+        <div class="k">한계</div><div class="v">EAGLE 모델 학습 필요. published venue 직접 확인 미완료.</div>
+        <div class="k">Qwen3-235B 관점</div><div class="v">vLLM이 EAGLE을 spec decode 메서드로 지원하므로 runtime 측면에서는 가능. 단 EAGLE draft 학습이 별도 작업 — <strong>조건부 검토 대상</strong>.</div>
+        <div class="k">평가 지표</div><div class="v">tokens/sec · speedup ratio · acceptance rate</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Lookahead Decoding — Break the Sequential Dependency of LLM Inference</div>
+        <span class="badge venue-check">저자·venue 확인 필요</span>
+        <span class="badge direct">직접 실험 근거</span>
+        <span class="badge condition">조건부 검토 대상</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2402.02057" target="_blank">arXiv:2402.02057</a> · 저자 / venue 확인 필요</div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v"><strong>draft model 없이</strong> autoregressive decoding의 sequential dependency를 줄이는 exact parallel decoding algorithm.</div>
+        <div class="k">줄이는 대상</div><div class="v">sequential decoding dependency · total decoding steps</div>
+        <div class="k">필요 조건</div><div class="v">auxiliary model이나 datastore 없이 동작하는 방향. 단 실제 효과는 serving runtime과 hardware 환경에서 확인 필요.</div>
+        <div class="k">장점</div><div class="v">별도 draft 학습 / 모델 수정 불요.</div>
+        <div class="k">한계</div><div class="v">실제 가속 정도는 environment-dependent. 저자 / venue 직접 확인 미완료.</div>
+        <div class="k">Qwen3-235B 관점</div><div class="v">draft 학습 부담이 없어 적용 장벽이 낮은 편 — 단 우리 serving stack에서 측정 전까지는 <strong>조건부 검토 대상</strong>.</div>
+        <div class="k">평가 지표</div><div class="v">tokens/sec · per-token latency · decoder utilization</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">MTP — Multi-Token Prediction (vLLM spec decode 메서드)</div>
+        <span class="badge preprint">vLLM 공식 문서 reference</span>
+        <span class="badge native">모델 지원 여부 확인 필요</span>
+      </div>
+      <div class="pc-meta">vLLM speculative decoding 문서 — <a href="https://docs.vllm.ai/en/latest/features/speculative_decoding/" target="_blank">docs.vllm.ai/en/latest/features/speculative_decoding/</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">target model이 native multi-token prediction을 지원할 때 speculative decoding에 활용 가능. parallel multi-token prediction.</div>
+        <div class="k">줄이는 대상</div><div class="v">decoding step 수 · per-step forward 수</div>
+        <div class="k">필요 조건</div><div class="v"><strong>target model이 native MTP를 지원해야 한다.</strong> 모델이 native MTP support 없이는 MTP 메서드 그대로 적용 불가.</div>
+        <div class="k">장점</div><div class="v">native support가 있으면 별도 draft 학습 없이 spec decoding 효과 가능.</div>
+        <div class="k">한계</div><div class="v">Qwen3-235B의 native MTP 지원 여부를 본 작업에서 직접 확인하지 못함. <strong>native MTP가 없으면 EAGLE 또는 draft model speculation 같은 방법을 검토</strong>한다.</div>
+        <div class="k">Qwen3-235B 관점</div><div class="v"><strong>모델 지원 여부 확인 필요</strong>. native MTP가 없으면 MTP는 우선 대상이 아니며, EAGLE / draft model speculation이 대안.</div>
+        <div class="k">평가 지표</div><div class="v">tokens/sec · MTP acceptance rate</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Early Exit / Layer-wise Distillation (일반 카테고리)</div>
+        <span class="badge uncertain">구체 paper 인용 보류</span>
+        <span class="badge extension">확장 후보</span>
+      </div>
+      <div class="pc-meta">특정 paper 인용 없이 카테고리로 정리. 본문에서는 비중을 낮게 다룸.</div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">쉬운 token 또는 쉬운 input은 모든 layer를 통과하지 않고 중간 layer에서 종료. layer-wise distillation 또는 early-exit head 필요할 수 있음.</div>
+        <div class="k">줄이는 대상</div><div class="v">layer-wise compute · token generation compute</div>
+        <div class="k">필요 조건</div><div class="v">모델 구조 또는 inference framework 수정. early-exit head 학습 또는 layer-wise distillation supervision.</div>
+        <div class="k">장점</div><div class="v">모델 내부 computation을 줄이는 방향.</div>
+        <div class="k">한계</div><div class="v">일반 generation agent workflow에 바로 적용하기에는 조건이 강함. 발표나 요약에서는 메인 방법보다 낮은 비중.</div>
+        <div class="k">Qwen3-235B 관점</div><div class="v"><strong>확장 후보</strong>. 모델·inference 수정 권한이 있는 경우에만 검토.</div>
+        <div class="k">평가 지표</div><div class="v">avg exit layer · compute reduction · quality retention</div>
+      </div>
+    </div>
+
+  </div>
+
+  <h3>비교 요약</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>방법</th>
+          <th>draft / speculator 필요 여부</th>
+          <th>target model 수정 필요 여부</th>
+          <th>줄이는 대상</th>
+          <th>장점</th>
+          <th>한계</th>
+          <th>Qwen3-235B 관점</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Speculative Decoding</td><td>예 (별도 draft model)</td><td>아니오 (target 그대로)</td><td>decoding step 수</td><td>output 보존, 모델 그대로</td><td>acceptance rate 의존</td><td>235B target + smaller Qwen3 draft 검토 가능 — 단 verifier forward 비용 크다</td></tr>
+        <tr><td>Medusa</td><td>head 형태로 내장</td><td>예 (head 학습 필요)</td><td>decoding step 수</td><td>별도 draft 유지 부담 감소</td><td>head 학습 비용, 모델 수정 권한 필요</td><td>조건부 검토 대상</td></tr>
+        <tr><td>EAGLE</td><td>예 (feature-level speculator)</td><td>일부 (speculator 학습)</td><td>decoding latency</td><td>여러 대형 모델 latency speedup 보고</td><td>EAGLE 학습 또는 runtime 지원 필요</td><td>조건부 검토 대상 — vLLM EAGLE 지원</td></tr>
+        <tr><td>Lookahead Decoding</td><td>아니오</td><td>아니오</td><td>sequential dependency</td><td>auxiliary 없이 동작</td><td>environment dependent 효과</td><td>조건부 검토 대상 — runtime 측정 필요</td></tr>
+        <tr><td>MTP (vLLM 메서드)</td><td>해당 없음</td><td>예 (native MTP support 필요)</td><td>decoding step 수</td><td>native가 있으면 추가 학습 불요</td><td>target model이 MTP support 안 하면 적용 불가</td><td>모델 지원 여부 확인 필요</td></tr>
+        <tr><td>Early Exit</td><td>아니오</td><td>예 (early-exit head 또는 layer-wise distill)</td><td>layer-wise compute</td><td>모델 내부 compute 절감</td><td>구조 / framework 수정 필요</td><td>확장 후보</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>vLLM 지원 매핑 (참고)</h3>
+  <p style="font-size:0.86rem">vLLM 공식 문서 reference에 따르면 vLLM은 <strong>EAGLE / MTP / draft model / ngram / Medusa / PARD / MLP</strong>를 speculative decoding 메서드로 지원한다. 단 deploy 시점 vLLM 버전에 따라 지원 메서드와 옵션이 변할 수 있으므로 실제 사용 시 해당 버전 문서를 직접 확인해야 한다. <span class="badge uncertain">버전별 확인 필요</span></p>
+
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+
+  <!-- Subsection: Output length and Qwen3 Thinking Mode -->
+  <h3 id="output-length">Output length와 Qwen3 Thinking Mode (decoding optimization보다 먼저 확인할 것)</h3>
+
+  <div class="note-box">
+    <h4>가장 단순한 latency 변수는 output length다</h4>
+    <p>Decoding optimization을 도입하기 전에, 먼저 확인해야 할 가장 단순한 latency 변수는 <strong>output length</strong>이다. 어떤 speculative method든 출력 token 수에 비례하는 latency를 완전히 없앨 수는 없다.</p>
+  </div>
+
+  <ul>
+    <li>Agent workflow에서 어떤 step (예: Step 1 또는 Step 4)이 장황한 reasoning을 출력하면 decode latency가 커진다.</li>
+    <li>KD 학습 데이터에는 reasoning을 supervision으로 포함하더라도, <strong>serving output은 짧은 JSON / action으로 제한</strong>하는 것이 latency 관점에서 유리하다.</li>
+    <li>Qwen3는 <code>/think</code>와 <code>/no_think</code> soft switch (또는 Qwen3-Instruct-2507 / Qwen3-Thinking-2507 variant 선택)로 thinking mode와 non-thinking mode를 전환할 수 있다 (Qwen3 공식 문서 / blog 기준).</li>
+    <li>Hard case가 아니면 non-thinking mode 또는 <strong>제한된 reasoning budget</strong>을 검토할 수 있다.</li>
+    <li>다만 reasoning을 줄이면 action quality가 떨어질 수 있으므로 schema validity, action accuracy, fallback rate를 함께 봐야 한다.</li>
+  </ul>
+
+  <div class="warn-box">
+    <h4>주의 — "무조건 non-thinking"이 아니다</h4>
+    <p>Qwen3에서 무조건 non-thinking mode를 써야 한다고 단정하지 않는다. <strong>task difficulty와 speed requirement에 따라 thinking / non-thinking mode를 나눌 수 있다.</strong> 어려운 case는 thinking mode로, 쉬운 case는 non-thinking mode로 라우팅하는 cascade (§2.8) 패턴과 자연 연결.</p>
+  </div>
+</section>
+
+<!-- §2.8 System-level orchestration (was §2.6) -->
+<section class="method-section m6" id="m6">
+  <span class="method-label">Method Category 2.8</span>
+  <span class="sec-num">§2.8</span>
+  <h2>System-level orchestration</h2>
+
+  <div class="method-overview">
+    <p><strong>무엇을 줄이는가:</strong> LLM 호출 횟수 · 큰 모델 호출 비율 · fallback cost · workflow step 수.</p>
+    <p><strong>핵심 아이디어:</strong> 모델을 줄이는 것뿐 아니라 "언제 어떤 모델을 부를 것인가"가 경량화의 큰 축이다. cascade (쉬운 요청 → SLM, 어려운 요청 → LLM), router, batch decision, step merging, fallback이 여기에 속한다.</p>
+    <p><strong>적합한 상황:</strong> 요청 난이도 분포가 넓다. 일부 요청만 큰 모델이 필요. 호출 비용이 모델 크기 비용을 압도한다.</p>
+  </div>
+
+  <div class="concept-diagram">
+    <div class="cd-title">Diagram D8 — Cascade architecture (SLM-first with LLM fallback)</div>
+    <div class="cd-horizontal">
+      <div class="cd-box input">User Task</div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box slm">SLM First<br><span style="font-weight:400;font-size:0.72rem">light, cheap</span></div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box">Confidence Check</div>
+      <div class="cd-arrow">↓<br><span class="cd-arrow-label">if low</span></div>
+      <div class="cd-box llm">LLM Fallback<br><span style="font-weight:400;font-size:0.72rem">heavy, accurate</span></div>
+    </div>
+    <div class="cd-caption">개념도 — fallback rate · router 정확도 · 큰 모델 호출 비율의 trade-off</div>
+  </div>
+
+  <h3>대표 논문 / position</h3>
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Small Models Big Tasks — An Exploratory Study on Small Language Models for Agentic Tasks</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2504.19277" target="_blank">arXiv:2504.19277</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">SLM이 agentic task에 어디까지 가능한지 정량 평가. format adherence와 fine-tuning의 역할을 분석.</div>
+        <div class="k">줄이는 대상</div><div class="v">(평가 — SLM-first 설계의 위험 신호)</div>
+        <div class="k">장점</div><div class="v">SLM이 output format 준수에 "struggle significantly" (원문 표현). prompt injection에는 generally robust. fine-tuning &gt; few-shot &gt; zero-shot 순서.</div>
+        <div class="k">한계</div><div class="v">format 실패의 구체 유형 (JSON schema, argument validity)은 본문에서 도출된 해석이며 abstract에 명시되지 않음.</div>
+        <div class="k">평가 지표</div><div class="v">schema validity, format adherence, prompt injection robustness</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Chain-of-Agents — 단일 모델 안에 multi-agent 통합 방향</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge position">position·survey</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2506.02153" target="_blank">arXiv:2506.02153</a></div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">여러 agent 역할을 단일 모델 안에 통합하는 방향성 제시.</div>
+        <div class="k">줄이는 대상</div><div class="v">agent 간 호출 overhead · 모델 인스턴스 수</div>
+        <div class="k">장점</div><div class="v">호출 횟수 감소 가능. 단일 모델 운영의 단순성.</div>
+        <div class="k">한계</div><div class="v">단일 모델로 역할 분리가 깨질 수 있음. 일반화 보장은 별도 검증.</div>
+        <div class="k">평가 지표</div><div class="v">호출 횟수 감소율, multi-role 성능 보존</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">"Small Language Models are the Future of Agentic AI" 류 position</div>
+        <span class="badge venue-check">venue 확인 필요</span>
+        <span class="badge position">position·survey</span>
+      </div>
+      <div class="pc-meta">verification.md 기준 미검증 — 별도 paper-deep-reader 실행 후 확정 필요</div>
+      <div class="pc-body">
+        <div class="k">핵심</div><div class="v">SLM-first agent architecture를 옹호하는 일반 입장. position paper 또는 survey.</div>
+        <div class="k">줄이는 대상</div><div class="v">(주장 — 실험 데이터 아님)</div>
+        <div class="k">장점</div><div class="v">SLM이 task당 cost를 낮추는 일반적 방향성을 제시.</div>
+        <div class="k">한계</div><div class="v">실험 검증이 부족하면 외삽 위험. 본 문서는 본문 인용 자제, references로만 사용.</div>
+        <div class="k">평가 지표</div><div class="v">(position — 측정 대상 아님)</div>
+      </div>
+    </div>
+
+  </div>
+
+  <h3>System-level 메서드 카탈로그 (구현 패턴)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th style="width:22%">패턴</th><th>설명</th><th style="width:24%">주된 위험</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Cascade</strong></td><td>SLM 먼저, 신뢰도 낮으면 LLM</td><td>Router 오류 시 품질 저하</td></tr>
+        <tr><td><strong>Router</strong></td><td>요청 종류에 따라 모델 선택</td><td>Router 자체가 학습 대상 + 비용</td></tr>
+        <tr><td><strong>Fallback</strong></td><td>Schema error / low confidence 시 큰 모델 escalate</td><td>Fallback rate가 비용 절감을 상쇄할 수 있음</td></tr>
+        <tr><td><strong>Step merging</strong></td><td>여러 단계를 한 호출에 통합</td><td>입력 노이즈가 크면 통합 호출이 더 취약</td></tr>
+        <tr><td><strong>Batch decision</strong></td><td>여러 sub-decision을 한 호출에 처리</td><td>한 호출의 부분 실패가 batch 전체에 전파</td></tr>
+        <tr><td><strong>Offline teacher labeling</strong></td><td>큰 모델은 offline에서 정답 생성, online은 student만</td><td>offline / online 분포 차이</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn-box">
+    <h4>운영상 주의</h4>
+    <p>System-level 최적화는 모델 교체 없이 적용 가능하다는 이점이 있지만, <strong>router 정확도와 fallback rate가 새로운 quality risk</strong>가 된다. 단순한 latency 측정이 아니라 <code>cost per successful task</code>를 핵심 지표로 두어야 한다.</p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ §3 비교표 ════════════ -->
+<section class="doc" id="compare">
+  <span class="sec-num">§3</span>
+  <h2>대표 논문 비교표</h2>
+
+  <p>22편의 비교표. "근거 수준" 컬럼의 4단계:</p>
+  <ul>
+    <li><span class="badge direct">직접 실험 근거</span> — 해당 논문이 직접 실험으로 보고한 결과</li>
+    <li><span class="badge crossdom">다른 도메인 실험</span> — 다른 task로 검증된 결과 (agent 도메인 외삽 필요)</li>
+    <li><span class="badge position">position·survey</span> — 입장 또는 survey, 직접 실험 데이터 부족</li>
+    <li><span class="badge extrap">우리 프로젝트 외삽</span> — Profile Agent 적용 시의 가설 (본 표에는 등장하지 않음, Appendix만)</li>
+    <li><span class="badge uncertain">확인 필요</span> — venue / 존재 여부 검증 필요</li>
+  </ul>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:9%">계열</th>
+          <th style="width:18%">논문</th>
+          <th style="width:5%">연도</th>
+          <th style="width:11%">venue / arXiv</th>
+          <th style="width:9%">줄이는 대상</th>
+          <th>핵심 방법</th>
+          <th>장점</th>
+          <th>한계</th>
+          <th>Agent benchmark</th>
+          <th style="width:8%">근거 수준</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>§2.1</td><td>GPTQ</td><td>2023</td><td>ICLR 2023 / 2210.17323</td><td>weight precision</td><td>second-order info 기반 one-shot weight quantization</td><td>175B 양자화 4 GPU시간, A100 3.25× / A6000 4.5× speedup</td><td>3-bit 이하 agent action 보존 별도 검증 필요</td><td>task success, schema validity, latency</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.1</td><td>AWQ</td><td>2024</td><td>MLSys 2024 / 2306.00978</td><td>weight precision</td><td>activation 기반 salient 1% 보호, per-channel scaling</td><td>3× speedup, mobile GPU 70B 배포</td><td>calibration 분포 의존</td><td>schema validity, latency, throughput</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.1</td><td>QLoRA</td><td>2023</td><td>NeurIPS 2023 / 2305.14314</td><td>training memory</td><td>NF4 + LoRA adapter + double quant + paged optimizer</td><td>65B를 단일 48GB GPU에서 fine-tune</td><td>서빙 시 추가 분기 필요</td><td>downstream success, training cost</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.2</td><td>MiniLLM</td><td>2024</td><td>ICLR 2024 / 2306.08543</td><td>student parameters</td><td>reverse KL로 mode-seeking</td><td>760M이 1.5B teacher 능가 (UnNI Rouge-L)</td><td>policy gradient 비용, agent task 직접 검증 없음</td><td>downstream task, generation diversity</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.2</td><td>GKD</td><td>2024</td><td>ICLR 2024 / 2306.13649</td><td>student parameters + exposure bias</td><td>on-policy distillation, self-generate + teacher feedback</td><td>RLHF와 자연 결합</td><td>on-policy sampling 비용, logits 필요</td><td>multi-turn robustness, success rate</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.2</td><td>DPO</td><td>2023</td><td>NeurIPS 2023 / 2305.18290</td><td>RLHF training cost</td><td>closed-form 1-stage preference optim</td><td>reward model 없이 align</td><td>compression 자체 아님</td><td>preference win-rate</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.2</td><td>PLaD</td><td>2024</td><td>ACL 2024 Findings / 2406.02886</td><td>capacity gap 학습 신호 손실</td><td>teacher chosen + student rejected pseudo-pair ranking loss</td><td>capacity gap 클수록 효과</td><td>teacher output 항상 chosen 가정</td><td>downstream win-rate, success rate</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.2</td><td>PAD</td><td>2024</td><td>2502.14272 · <span class="badge venue-check">venue 확인 필요</span></td><td>preference 데이터 수집</td><td>3-stage high-temp sampling + intrinsic preference</td><td>AlpacaEval 2 / Arena-Hard 20%+ 향상</td><td>venue 미확정</td><td>preference win-rate, task quality</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.2</td><td>DPKD</td><td>2024</td><td>2406.19774 · <span class="badge venue-check">venue 확인 필요</span></td><td>capacity gap 학습 신호</td><td>KL + implicit reward 결합</td><td>MiniLLM과 결합 가능</td><td>venue 미확정, implicit reward 설계 task-specific</td><td>downstream task quality</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.2</td><td>Every Expert Matters (MoE KD)</td><td>2025</td><td>arXiv preprint / 2502.12947</td><td>MoE non-activated expert 활용 부족</td><td>KA (sampling) + SAR (student-aware router)</td><td>MoE teacher에서 더 풍부한 distill</td><td>KA는 sampling 비용, SAR는 router loop</td><td>student downstream quality</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.3</td><td>Distilling LLM Agent (Retrieval+Code)</td><td>2025</td><td>NeurIPS 2025 Spotlight / 2505.17612</td><td>student params + CoT 한계</td><td>first-thought prefix + self-consistent action</td><td>0.5/1.5/3B가 1.5/3/7B와 경쟁</td><td>특정 tool 환경 specialized</td><td>task success, tool-call accuracy</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.3</td><td>Structured Agent Distillation</td><td>2025</td><td>arXiv preprint / 2505.13820</td><td>reasoning / action 분리 학습</td><td>[REASON]/[ACT] segment-specific KL loss</td><td>ALFWorld / WebShop / HotPotQA-ReAct 검증</td><td>[ACT] 정의가 tool call 한정</td><td>task success, action consistency</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.3</td><td>Sub-goal Distillation</td><td>2024</td><td>arXiv preprint / 2405.02749</td><td>inference time LLM calls</td><td>sub-goal 단위 trajectory 분해</td><td>ScienceWorld +16.7% absolute</td><td>elementary action 환경 의존</td><td>success rate, fixed inference cost</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.3</td><td>AgentTuning</td><td>2023</td><td>arXiv preprint / 2310.12823</td><td>agent SFT 데이터 부족</td><td>AgentInstruct + hybrid SFT (agent + general)</td><td>AgentLM-70B가 GPT-3.5-turbo와 comparable</td><td>tool-use 중심 데이터셋</td><td>unseen agent success, retention</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.3</td><td>Agent-FLAN</td><td>2024</td><td>arXiv preprint / 2403.12881</td><td>능력별 학습 속도 불균형</td><td>능력 분리 학습 + negative sample</td><td>Llama2-7B +3.5%</td><td>"과적합" 표현 본문 §3 확인 권장</td><td>capability balance, hallucination rate</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.3</td><td>ACBench</td><td>2025</td><td>arXiv preprint / 2505.19433</td><td>(평가 frame)</td><td>4-capability + ERank/Energy/Top-k Correlation</td><td>4-bit는 workflow gen 1~3% 손실, reasoning KD는 tool use 70→43.6%</td><td>tool-use 수치 tool-calling 한정</td><td>ACBench 4-cap, ERank</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.4</td><td>Internalizing Tool Knowledge</td><td>2026</td><td>arXiv preprint / 2605.17774</td><td>tool schema token (입력)</td><td>QLoRA로 tool 지식을 모델 가중치에 내재화</td><td>Qwen3-4B 62% 메모리 절감, 2.5× 속도, ~$62 학습</td><td>tool update 시 재학습</td><td>prompt token reduction, tool-call accuracy</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.4</td><td>Less is More</td><td>2025</td><td>DATE 2025 / 2411.15399</td><td>action space + prompt token</td><td>관련 tool subset만 prompt에</td><td>execution time 최대 70% 감소, power 40% 감소</td><td>router가 tool 누락하면 task 실패</td><td>tool selection recall, latency</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.4</td><td>AgentDistill</td><td>2025</td><td>arXiv preprint / 2506.14728</td><td>학습 비용 + 반복 sub-task 계산</td><td>training-free, MCP module 재사용</td><td>training-free 운영 단순성</td><td>MCP 정의 환경 의존, module 관리 비용</td><td>module reuse rate, success rate</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.5</td><td>AgentDiet</td><td>2026</td><td>FSE 2026 / 2509.23586</td><td>trajectory context</td><td>useless/redundant/expired 자동 제거 (inference-time)</td><td>입력 토큰 39.9~59.7%↓, 비용 21.1~35.9%↓</td><td>sliding-window 세부 본문 확인 필요</td><td>token reduction, success retention</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.5</td><td>ACON</td><td>2025</td><td>arXiv preprint / 2510.00615</td><td>peak context + long-horizon 누적</td><td>observation+history 동시 압축 + 소형 compressor distill</td><td>peak token 26~54%↓, distill 후 95%+ 정확도</td><td>compressor 추가 학습 요소</td><td>peak token, long-horizon success</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.6</td><td>vLLM (PagedAttention)</td><td>2023</td><td>SOSP 2023 / 2309.06180</td><td>KV cache waste · throughput</td><td>PagedAttention, KV cache block 단위 관리</td><td>near-zero KV cache waste, 모델 그대로 throughput 향상</td><td>모델 quality 개선 아님, runtime 한정</td><td>tokens/sec, KV cache utilization, p95 latency</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.6</td><td>SGLang (RadixAttention)</td><td>2024</td><td>NeurIPS 2024 / 2312.07104</td><td>repeated prefix · multi-call overhead</td><td>call 간 KV cache 재사용, structured LM program 실행</td><td>같은 prefix 반복 시 latency 감소 가능</td><td>실제 이득은 prefix 공유 정도와 runtime 구조 의존</td><td>prefix cache hit, per-call latency</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.6</td><td>CacheGen</td><td>2024</td><td>SIGCOMM 2024 / 2310.07240</td><td>KV cache transfer · context loading</td><td>KV cache 압축 + streaming</td><td>cache size 3.5~4.3×↓, fetch+process delay 3.2~3.7×↓ (원문 조건)</td><td>KV cache 저장·전송 layer가 있는 architecture에서만 의미</td><td>cache size, load delay, TTFT</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.7</td><td>Speculative Decoding</td><td>2023</td><td>ICML 2023 Oral / 2211.17192</td><td>decoding step 수</td><td>small draft 제안 + target 병렬 검증</td><td>2~3× 가속, output 보존 (T5-XXL)</td><td>acceptance rate 의존</td><td>tokens/sec, acceptance rate, p95</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.7</td><td>Medusa</td><td>2024</td><td>2401.10774 · <span class="badge venue-check">venue 확인 필요</span></td><td>decoding step 수</td><td>backbone에 multi-decoding heads + tree attention</td><td>2.2~3.6× 가속, 별도 draft model 부담 없음</td><td>head 학습 필요, 모델 수정 권한 필요</td><td>tokens/sec, head training cost</td><td><span class="badge condition">조건부 검토</span></td></tr>
+        <tr><td>§2.7</td><td>EAGLE</td><td>2024</td><td>2401.15077 · <span class="badge venue-check">venue 확인 필요</span></td><td>decoding latency</td><td>feature-level autoregression speculator</td><td>70B에서 2.7~3.5× speedup, vLLM 지원</td><td>EAGLE speculator 학습 필요</td><td>speedup ratio, acceptance rate</td><td><span class="badge condition">조건부 검토</span></td></tr>
+        <tr><td>§2.7</td><td>Lookahead Decoding</td><td>2024</td><td>2402.02057 · <span class="badge venue-check">저자·venue 확인 필요</span></td><td>sequential dependency</td><td>draft 없이 parallel decoding</td><td>auxiliary model / datastore 불요</td><td>실제 효과 environment-dependent</td><td>tokens/sec, decoder utilization</td><td><span class="badge condition">조건부 검토</span></td></tr>
+        <tr><td>§2.7</td><td>MTP (vLLM 메서드)</td><td>—</td><td>vLLM 공식 문서 reference</td><td>decoding step 수</td><td>native multi-token prediction</td><td>native support 있으면 별도 draft 학습 불요</td><td>target model의 native MTP support 필요</td><td>tokens/sec, MTP acceptance rate</td><td><span class="badge native">모델 지원 확인 필요</span></td></tr>
+        <tr><td>§2.7</td><td>Early Exit / Layer-wise Distill</td><td>—</td><td>(일반 카테고리)</td><td>layer-wise compute</td><td>중간 layer 종료 + early-exit head</td><td>모델 내부 computation 절감</td><td>모델 구조 / inference framework 수정 필요</td><td>avg exit layer, compute reduction</td><td><span class="badge extension">확장 후보</span></td></tr>
+        <tr><td>§2.8</td><td>Small Models Big Tasks</td><td>2025</td><td>arXiv preprint / 2504.19277</td><td>(평가)</td><td>SLM agentic 능력 정량 평가</td><td>format adherence struggle 경고, fine-tune &gt; few-shot &gt; zero-shot</td><td>format 실패 유형은 본문 해석</td><td>schema validity, format adherence</td><td><span class="badge direct">직접</span></td></tr>
+        <tr><td>§2.8</td><td>Chain-of-Agents</td><td>2025</td><td>arXiv preprint / 2506.02153</td><td>agent 호출 overhead</td><td>multi-agent 통합 방향</td><td>호출 횟수 감소 가능</td><td>일반화 검증 부족</td><td>호출 수 감소율</td><td><span class="badge position">position</span></td></tr>
+        <tr><td>§2.8</td><td>SLM Future / Survey 류</td><td>—</td><td><span class="badge venue-check">venue 확인 필요</span></td><td>(주장)</td><td>SLM-first 옹호 position</td><td>일반 방향성</td><td>실험 검증 부족</td><td>—</td><td><span class="badge uncertain">확인 필요</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════ §4 Benchmark ════════════ -->
+<section class="doc" id="bench">
+  <span class="sec-num">§4</span>
+  <h2>Agent LLM 경량화 벤치마크 설계</h2>
+
+  <p><strong>핵심 메시지:</strong> 작은 모델이 PPL·MMLU 같은 일반 벤치마크를 유지해도 agent workflow에서는 실패할 수 있다. agent-level benchmark가 반드시 필요하다.</p>
+
+  <h3>4.1 지표 정의표</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th style="width:22%">지표</th><th>측정 내용</th><th>왜 Agent에서 중요한가</th><th style="width:22%">관련 방법론</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>PPL</strong></td><td>다음 토큰 예측 perplexity</td><td>일반 언어 모델 품질의 기본 지표 — agent 능력의 충분조건은 아님</td><td>§2.1 (모델 압축 sanity check)</td></tr>
+        <tr><td><strong>MMLU / QA accuracy</strong></td><td>지식·추론 multiple choice 정확도</td><td>일반 추론 보존 확인 — agent action 보존은 별도</td><td>§2.1, §2.2</td></tr>
+        <tr><td><strong>Tool-call accuracy</strong></td><td>올바른 tool과 argument 선택 비율</td><td>외부 tool을 호출하는 agent의 핵심 지표</td><td>§2.3, §2.4</td></tr>
+        <tr><td><strong>Executable call rate</strong></td><td>생성된 tool call이 실제 실행 가능한 비율</td><td>schema·argument 오류로 인한 실행 실패 측정</td><td>§2.4, §2.6</td></tr>
+        <tr><td><strong>Schema validity rate</strong></td><td>출력이 요구 JSON/schema를 만족하는 비율</td><td>파싱 실패는 workflow 중단으로 직결</td><td>Schema-constrained KD, structured decoding</td></tr>
+        <tr><td><strong>Task success rate</strong></td><td>end-to-end task 완료율</td><td>모든 sub-metric의 종합 — 가장 중요한 외부 지표</td><td>§2.3, §2.5</td></tr>
+        <tr><td><strong>Multi-turn robustness</strong></td><td>step이 늘어도 task success rate가 유지되는 정도</td><td>compression이 multi-step에서 누적 손실을 일으키는지 확인</td><td>§2.3, §2.5</td></tr>
+        <tr><td><strong>p50 / p95 latency</strong></td><td>응답 시간의 중앙값과 95-percentile</td><td>tail latency가 사용자 경험을 결정</td><td>§2.1, §2.6</td></tr>
+        <tr><td><strong>Cost per successful task</strong></td><td>성공한 task 1건당 평균 비용</td><td>단순 latency보다 운영 효율을 잘 반영</td><td>§2.1, §2.6 (cascade), §2.5</td></tr>
+        <tr><td><strong>Fallback rate</strong></td><td>SLM에서 LLM으로 escalate되는 비율</td><td>cascade의 실질 비용 절감 효과 검증</td><td>§2.6</td></tr>
+        <tr><td><strong>Wrong action rate</strong></td><td>잘못된 action을 결정한 비율</td><td>final answer가 맞아도 중간 action이 틀리면 workflow 변동</td><td>§2.3</td></tr>
+        <tr><td><strong>Hallucinated tool argument rate</strong></td><td>존재하지 않는 argument 값 생성 비율</td><td>tool 실행 시 실패의 흔한 원인</td><td>§2.3, §2.4</td></tr>
+        <tr><td><strong>Context token reduction</strong></td><td>입력 token 감소율</td><td>§2.5 메서드의 직접 측정값</td><td>§2.5</td></tr>
+        <tr><td><strong>Output repair rate</strong></td><td>schema 위반 후 자동 수리해서 통과시킨 비율</td><td>raw schema validity와 함께 봐야 함</td><td>§2.6 (post-processing)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>4.2 일반 벤치마크와 agent 벤치마크의 분리</h3>
+  <div class="warn-box">
+    <h4>일반 벤치마크 ≠ Agent 벤치마크</h4>
+    <p>MMLU에서 동등한 두 모델이 schema validity rate에서 40%p 차이날 수 있다. Compression 결과를 채택할 때는 <strong>최소한 다음 4개</strong>를 함께 측정한다: ① schema validity, ② tool-call accuracy (해당하면), ③ task success rate, ④ p95 latency. cost per successful task는 단일 latency 지표보다 우선한다.</p>
+  </div>
+</section>
+
+<!-- ════════════ §5 선택 가이드 ════════════ -->
+<section class="doc" id="guide">
+  <span class="sec-num">§5</span>
+  <h2>방법론 선택 가이드</h2>
+
+  <p>"상황 → 추천 방법론 → 효과 → 주의점" 표. 각 상황에서 먼저 검토할 카테고리를 명시한다.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th style="width:28%">상황</th><th style="width:22%">추천 방법론</th><th>기대 효과</th><th style="width:22%">주의점</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>GPU memory가 부족하다</td>
+          <td>§2.1 Quantization (GPTQ / AWQ), QLoRA</td>
+          <td>memory footprint 절반 또는 1/4</td>
+          <td>agent action·schema 보존은 별도 측정</td>
+        </tr>
+        <tr>
+          <td>Latency가 문제다</td>
+          <td>§2.1 Quantization + §2.6 cascade</td>
+          <td>p50/p95 latency 단축</td>
+          <td>p95는 fallback과 router 정확도에 의존</td>
+        </tr>
+        <tr>
+          <td>Tool schema token이 너무 크다</td>
+          <td>§2.4 Tool internalization 또는 tool selection</td>
+          <td>Prompt 길이와 action space 감소</td>
+          <td>Tool update 시 재학습 또는 router 오류</td>
+        </tr>
+        <tr>
+          <td>Multi-step context가 너무 길다</td>
+          <td>§2.5 Trajectory compression (AgentDiet / ACON)</td>
+          <td>입력 token 30~60%↓, 비용 20~35%↓ (원문 조건 명시)</td>
+          <td>compressor 자체 운영 비용</td>
+        </tr>
+        <tr>
+          <td>Tool call JSON이 자주 깨진다</td>
+          <td>§2.4 + §2.6 (schema-constrained decoding + output repair)</td>
+          <td>schema validity rate 향상</td>
+          <td>지나친 schema 강제가 표현력 저하 가능</td>
+        </tr>
+        <tr>
+          <td>Final answer는 맞지만 action이 틀린다</td>
+          <td>§2.3 Agent trajectory distillation ([REASON]/[ACT] 분리)</td>
+          <td>action consistency 보존</td>
+          <td>학습 데이터에 trajectory 단위 supervision 필요</td>
+        </tr>
+        <tr>
+          <td>일부 쉬운 요청만 작은 모델로 보내고 싶다</td>
+          <td>§2.6 Cascade (SLM first + LLM fallback)</td>
+          <td>큰 모델 호출 비율 감소</td>
+          <td>Router 학습이 새로운 risk; fallback rate 측정 필수</td>
+        </tr>
+        <tr>
+          <td>기존 agent workflow를 큰 수정 없이 줄이고 싶다</td>
+          <td>§2.5 (training-free) + §2.6 (system-level)</td>
+          <td>모델 교체 없이 적용 가능</td>
+          <td>학습 기반 방법보다 효과 ceiling은 낮을 수 있음</td>
+        </tr>
+        <tr>
+          <td>Offline teacher data를 만들 수 있다</td>
+          <td>§2.2 Response KD + §2.3 trajectory KD</td>
+          <td>black-box 환경에서도 student 학습 가능</td>
+          <td>Teacher data 분포가 production과 다르면 일반화 위험</td>
+        </tr>
+        <tr>
+          <td>Teacher logits에 접근할 수 없다</td>
+          <td>§2.2 black-box response KD, PLaD (pseudo-pair)</td>
+          <td>logits 없이도 학습 신호 확보</td>
+          <td>token-level KD 대비 학습 신호 약화</td>
+        </tr>
+        <tr>
+          <td>Teacher가 MoE 모델이다</td>
+          <td>§2.2 Every Expert Matters (KA + SAR)</td>
+          <td>non-activated expert 지식 활용</td>
+          <td>KA sampling 비용, SAR router loop 구현 비용</td>
+        </tr>
+        <tr>
+          <td>같은 모델을 반복 호출하는 KV cache 비용이 크다</td>
+          <td>§2.6 vLLM (PagedAttention)</td>
+          <td>KV cache memory waste 감소, throughput 향상</td>
+          <td>모델 quality 개선은 아님 — runtime 한정</td>
+        </tr>
+        <tr>
+          <td>여러 generation call이 같은 instruction / schema / prefix를 공유한다</td>
+          <td>§2.6 SGLang (RadixAttention)</td>
+          <td>call 간 KV cache 재사용으로 multi-call latency 감소 가능성</td>
+          <td>이득은 prefix 공유 정도와 runtime 구조 의존</td>
+        </tr>
+        <tr>
+          <td>긴 context (user profile · parent context)를 반복 재사용하는데 매번 prefill한다</td>
+          <td>§2.6 CacheGen</td>
+          <td>KV cache 압축·streaming으로 loading delay 감소</td>
+          <td>KV cache 저장·전송 layer가 architecture에 있어야 의미</td>
+        </tr>
+        <tr>
+          <td>출력이 길어 decoding latency가 병목이다</td>
+          <td>§2.7 Speculative Decoding / EAGLE / Lookahead</td>
+          <td>output distribution 유지하면서 decoding step 감소</td>
+          <td>draft / speculator 학습 또는 runtime 지원 필요. acceptance rate에 따라 이득 변동</td>
+        </tr>
+        <tr>
+          <td>Decoding 가속을 검토하기 전에 latency를 가장 단순하게 줄이고 싶다</td>
+          <td>§2.7 subsection — Output length 제한 + Qwen3 thinking/non-thinking mode</td>
+          <td>output token 자체를 줄여 latency 절감</td>
+          <td>reasoning 축소가 action quality에 영향 가능 — schema validity / action accuracy 함께 측정</td>
+        </tr>
+        <tr>
+          <td>Target model이 native MTP를 지원하는지 모른다</td>
+          <td>§2.7 MTP card 참조 — native 지원 확인 후 결정</td>
+          <td>native MTP가 있으면 draft 학습 없이 spec decoding 가능</td>
+          <td>native MTP가 없으면 EAGLE 또는 draft model speculation으로 우회</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr class="divider">
+
+<hr class="divider">
+
+<!-- ════════════ §6 Domain Bridge ════════════ -->
+<div class="sec-group-title">§6 Domain Bridge — User Profile / Recommender / Workflow Decomposition 사례 (공부용 참고 자료)</div>
+
+<section class="doc" id="db1">
+  <span class="sec-num">§6.1</span>
+  <h2>User Profile Management 사례 — PURE</h2>
+  <p><em>이 절은 Profile Agent 설계 가설이 아니라, LLM이 user preference를 추출하고 profile을 누적 update하며 recommender에 연결하는 <strong>domain reference</strong>이다.</em></p>
+
+  <div class="paper-cards">
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">PURE: LLM-based User Profile Management for Recommender System</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge crossdom">다른 도메인 실험</span>
+      </div>
+      <div class="pc-meta">Seunghwan Bang, Hwanjun Song · <a href="https://arxiv.org/abs/2502.14541" target="_blank">arXiv:2502.14541</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">LLM이 user review에서 선호를 구조적으로 추출하고, 그 결과를 profile에 점진적으로 누적·갱신해 추천에 활용. 세 구성요소 — <strong>Review Extractor</strong> (user preference / item feature 추출), <strong>Profile Updater</strong> (profile 정제·갱신), <strong>Recommender</strong> (최신 profile로 개인화 추천).</div>
+        <div class="k">줄이는 대상</div><div class="v">profile token 누적 비용. profile 길이가 무한히 증가하지 않도록 token limitation을 관리.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">"LLM이 user preference를 추출 → profile에 누적 → token 제한 관리"라는 도메인 패턴 자체가 §2.5 trajectory compression / §2.4 schema 내재화와 같은 비용 축을 다룬다. 추천 도메인에서 profile 관리가 어떻게 다뤄지는지 보여주는 참고 자료.</div>
+        <div class="k">주의점</div><div class="v">PURE는 Amazon dataset 기준 성능을 보고하며, 이 수치는 우리 task와 평가 metric이 다르므로 <strong>직접 외삽 불가</strong>. "PURE가 좋았으니 우리에게도 좋다"는 추론은 하지 않는다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept-diagram">
+    <div class="cd-title">개념도 — Review Extractor → Profile Updater → Recommender (PURE의 일반 흐름, 도식만)</div>
+    <div class="cd-horizontal">
+      <div class="cd-box">Review / Action data</div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box teacher">Review Extractor<br><span style="font-weight:400;font-size:0.72rem">preference + item feature</span></div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box trace">Profile Updater<br><span style="font-weight:400;font-size:0.72rem">token-limited profile</span></div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box student">Recommender</div>
+    </div>
+  </div>
+</section>
+
+<section class="doc" id="db2">
+  <span class="sec-num">§6.2</span>
+  <h2>Rationale Distillation in Recommender — RDRec, SLIM</h2>
+  <p><em>이 절은 Step별 가설이 아니라 <strong>teacher가 생성한 자연어 rationale / explanation을 supervision으로 쓰는 추천 도메인 사례</strong>를 정리한다.</em></p>
+
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">RDRec: Rationale Distillation Recommender</div>
+        <span class="badge accepted">ACL 2024 Short</span>
+        <span class="badge crossdom">다른 도메인 실험</span>
+        <span class="badge gh"><a href="https://github.com/WangXFng/RDRec" target="_blank" style="color:#fff;text-decoration:none">GitHub</a></span>
+      </div>
+      <div class="pc-meta">Xinfeng Wang, Jin Cui, Yoshimi Suzuki, Fumiyo Fukumoto · <a href="https://arxiv.org/abs/2405.10587" target="_blank">arXiv:2405.10587</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">큰 LM이 user-item 관계에 대한 rationale(자연어 설명)을 생성하고, 작은 compact recommender가 그 rationale을 학습. user preference와 item attribute를 review에서 뽑아 profile에 specifies.</div>
+        <div class="k">줄이는 대상</div><div class="v">serving 시 큰 LM 호출 비용. rationale은 학습 supervision으로만 사용.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">teacher의 자연어 reasoning을 student supervision으로 쓰는 패턴이 추천 도메인에서 적용된 사례. §2.2 KD / §2.3 trajectory KD와 같은 사고방식을 추천 task로 옮긴 예.</div>
+        <div class="k">주의점</div><div class="v">RDRec는 추천 ranking 정확도가 목표 — 우리 task의 평가 metric(schema validity 등)과 다름. 성능 수치 외삽 불가.</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">SLIM: Can Small Language Models be Good Reasoners for Sequential Recommendation?</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge crossdom">다른 도메인 실험</span>
+      </div>
+      <div class="pc-meta">Yuling Wang, Changxin Tian, Binbin Hu, Yanhua Yu, Ziqi Liu, Zhiqiang Zhang, Jun Zhou, Liang Pang, Xiao Wang · <a href="https://arxiv.org/abs/2403.04260" target="_blank">arXiv:2403.04260</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">큰 teacher가 user behavior sequence에 대한 CoT rationale 생성 → 작은 student (예: LLaMA2-7B)가 학습. 생성된 explanation은 dense vector로 인코딩되어 ID-based / ID-agnostic recommendation 양쪽 지원.</div>
+        <div class="k">줄이는 대상</div><div class="v">serving 시 거대 teacher (예: ChatGPT-175B) 호출 비용.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">"teacher reasoning을 학습으로 흡수, serving에는 작은 모델만" 패턴의 추천 도메인 변형. RDRec와 같은 가족이며 sequential recommendation에 적용.</div>
+        <div class="k">주의점</div><div class="v"><strong>운영상 핵심</strong>: production serving output에는 rationale을 그대로 포함하지 않고, 학습 단계 supervision으로만 쓰는 것이 안전하다. rationale 노출은 schema validity / response time / 일관성에 영향.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note-box">
+    <h4>이 절의 일반적 메시지</h4>
+    <p>teacher rationale을 supervision으로 쓰는 패턴은 추천 도메인 외에도 §2.3 (trajectory KD) / Structured Agent Distillation의 [REASON]/[ACT] 분리와 동형이다. 추천 도메인에서는 이 패턴이 ID-based / ID-agnostic 양쪽으로 확장된다는 점이 특이.</p>
+  </div>
+</section>
+
+<section class="doc" id="db3">
+  <span class="sec-num">§6.3</span>
+  <h2>Step 통합 vs 분리: Workflow Decomposition 근거</h2>
+  <p><em>이 절은 "Step을 합쳐야 한다" 또는 "Step을 나눠야 한다"는 결론이 아니다. 복잡하거나 noisy한 context에서 task decomposition이 왜 유리할 수 있는지, 그리고 반대로 chain이 길어질 때의 trade-off가 무엇인지 정리한다.</em></p>
+
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Decomposed Prompting: A Modular Approach for Solving Complex Tasks</div>
+        <span class="badge accepted">ICLR 2023</span>
+        <span class="badge direct">직접 실험 근거</span>
+        <span class="badge gh"><a href="https://github.com/allenai/DecomP" target="_blank" style="color:#fff;text-decoration:none">GitHub</a></span>
+      </div>
+      <div class="pc-meta">Tushar Khot, Harsh Trivedi, Matthew Finlayson, Yao Fu, Kyle Richardson, Peter Clark, Ashish Sabharwal · <a href="https://arxiv.org/abs/2210.02406" target="_blank">arXiv:2210.02406</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">복잡한 task를 simpler sub-task로 분해, 각 sub-task를 별도 prompt · 별도 모델 · symbolic function 중 적합한 처리기로 routing. 재귀적 분해와 prompt 교체 가능.</div>
+        <div class="k">줄이는 대상</div><div class="v">단일 prompt의 복잡도 부담. 각 sub-task에 최적화된 처리기를 따로 둔다.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">"task complexity가 커질수록 단일 prompt가 한계에 부딪힌다"는 일반 메시지가 multi-step agent workflow의 통합 vs 분리 판단의 출발점.</div>
+        <div class="k">주의점</div><div class="v">분리하면 모듈 수가 늘고 각 모듈 prompt 관리·테스트 비용이 증가한다. 분해가 항상 정답은 아니다.</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">PromptChainer: Chaining Large Language Model Prompts through Visual Programming</div>
+        <span class="badge accepted">CHI 2022 Extended Abstracts</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta"><a href="https://arxiv.org/abs/2203.06566" target="_blank">arXiv:2203.06566</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">prompt를 chain으로 연결하면 단일 prompt보다 투명하고 제어 가능. 동시에 intermediate output 변환 비용과 step별 debugging scaffolding이 필요하다는 점도 명시.</div>
+        <div class="k">줄이는 대상</div><div class="v">debugging / 점진적 개선 비용 — chain 형태가 step별 격리 디버깅을 가능하게 함.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">chain 구조의 운영상 이점(투명성 / rollback)이 호출 횟수 증가의 비용과 어떻게 trade-off되는지 보여주는 사용자 연구 reference.</div>
+        <div class="k">주의점</div><div class="v">chain이 길어지면 schema 변환 누적 비용과 latency가 증가. 통합 호출의 latency 이점도 함께 평가해야 한다.</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">R³ Prompting: Review, Rephrase and Resolve for CoT Reasoning under Noisy Context</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Qingyuan Tian, Hanlun Zhu, Lei Wang, Yang Li, Yunshi Lan · <a href="https://arxiv.org/abs/2310.16535" target="_blank">arXiv:2310.16535</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">noisy context에서 한 번에 답을 내기보다 <strong>Review → Rephrase → Resolve</strong> 세 단계로 나누는 방식이 더 robust. 관련 정보 추출 → 재구성 → 추론의 단계 분리.</div>
+        <div class="k">줄이는 대상</div><div class="v">noisy 입력에서 단일 prompt의 오류 누적.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">"입력 노이즈가 크면 단계 분리가 더 robust"라는 결론은 통합 vs 분리 판단의 핵심 기준. 노이즈가 적은 입력은 InstructUIE처럼 통합 방식이 유리할 수도 있다는 반대 입장과 상보적.</div>
+        <div class="k">주의점</div><div class="v">단계가 많아질수록 호출 비용·schema 변환 비용도 증가. 노이즈 비율을 먼저 측정해야 어느 쪽이 유리한지 판단 가능.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <h3>통합 vs 분리 — 일반화된 trade-off</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>측면</th><th>통합(single-call) 유리</th><th>분리(chained) 유리</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>입력 노이즈</td><td>낮음 (정제된 입력)</td><td>높음 (R³의 입장)</td></tr>
+        <tr><td>호출 비용</td><td>1회 호출로 절감</td><td>호출 수 증가로 비용 상승</td></tr>
+        <tr><td>schema 변환</td><td>중간 단계 없음</td><td>step 간 변환 누적</td></tr>
+        <tr><td>디버깅 / rollback</td><td>전 과정이 블랙박스화</td><td>step별 격리 가능 (PromptChainer)</td></tr>
+        <tr><td>task 복잡도</td><td>낮은~중간 복잡도</td><td>높은 복잡도 (Decomposed Prompting)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warn-box">
+    <h4>적용 시 주의</h4>
+    <p>"통합 vs 분리"는 도메인 특성에 따른 <strong>방법론적 판단 기준</strong>이지, 어느 한쪽이 자동 정답이 아니다. Profile Agent에 어떻게 매핑할지는 §7 Appendix에서 가설로만 다룬다.</p>
+  </div>
+</section>
+
+<section class="doc" id="db4">
+  <span class="sec-num">§6.4</span>
+  <h2>User Sequence / Profile Industry Case — PinnerSage · PinFM · LEADRE</h2>
+  <p><em>이 절은 KD 논문 분류가 아니라 <strong>user behavior · user sequence · profile/recommendation에서 계산 비용과 representation 문제를 다루는 산업 사례</strong>를 정리한다. KD나 model compression 카테고리(§2.1~§2.3)와는 다른 축이며, 본문 §2.6 Serving 카테고리와 인접한 관점이다.</em></p>
+
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">PinnerSage — Multi-Modal User Embedding Framework for Recommendations at Pinterest</div>
+        <span class="badge accepted">KDD 2020</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Aditya Pal, Chantat Eksombatchai, Yitong Zhou, Bo Zhao, Charles Rosenberg, Jure Leskovec · <a href="https://arxiv.org/abs/2007.03634" target="_blank">arXiv:2007.03634</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">user action 전체를 단일 embedding으로 압축하지 않고, hierarchical clustering으로 묶은 뒤 각 cluster의 <strong>medoid</strong>로 대표한다. user를 multi-modal embedding 세트로 표현.</div>
+        <div class="k">줄이는 대상</div><div class="v">전체 user history를 매번 비교하지 않고 대표 단위(medoid)로 줄여 retrieval/scoring 비용 절감.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">"전체 history vs 대표 단위 요약"이라는 사고방식이 §2.5 trajectory compression / §6.1 PURE의 token-limited profile과 같은 축. 추천 도메인에서 user representation을 어떻게 줄이는가의 reference.</div>
+        <div class="k">주의점</div><div class="v">PinnerSage는 user action embedding 기반이며 LLM·KD 메서드가 아니다. medoid 기반 대표화가 모든 도메인에서 잘 작동한다고 단정하지 않는다.</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">PinFM — Foundation Model for User Activity Sequences at Pinterest</div>
+        <span class="badge accepted">ACM RecSys 2025</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Xiangyi Chen, Kousik Rajesh, Matthew Lawhon et al. · <a href="https://arxiv.org/abs/2507.12704" target="_blank">arXiv:2507.12704</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">20B+ parameter transformer를 user activity sequence로 next-token prediction pretrain. <strong>DCAT (Deduplicated Cross-Attention Transformer)</strong>로 user sequence를 request당 1회 처리 후 KV 캐시, candidate item이 cross-attend.</div>
+        <div class="k">줄이는 대상</div><div class="v">user-side computation의 candidate별 반복. cross-attention dedup.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">cross-attention에서의 user-side dedup 원칙이 §2.6 SGLang의 prefix 재사용 / Pinterest Dedup 블로그와 같은 sociotechnical 패턴. user 쪽 입력을 key/value로, candidate들을 query로 두는 구조의 일반 사례.</div>
+        <div class="k">주의점</div><div class="v">"600% throughput 향상"은 Pinterest 내부 측정치이며 hardware / batch / serving engine 조건이 다른 환경에 외삽 불가.</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">LEADRE — Multi-Faceted Knowledge Enhanced LLM Empowered Display Advertisement Recommender (Tencent)</div>
+        <span class="badge accepted">VLDB 2025</span>
+        <span class="badge direct">직접 실험 근거</span>
+      </div>
+      <div class="pc-meta">Fengxin Li, Yi Li, Yue Liu, Chao Zhou et al. (14 authors) · <a href="https://arxiv.org/abs/2411.13789" target="_blank">arXiv:2411.13789</a> · <a href="https://www.vldb.org/pvldb/vol18/p4763-he.pdf" target="_blank">VLDB PDF</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">LLM backbone(Hunyuan 1B)을 display advertising에 적용. Intent-aware prompt + DPO alignment(business GMV 기준) + <strong>latency-sensitive vs latency-tolerant 분리 deployment</strong> + TensorRT-LLM 가속.</div>
+        <div class="k">줄이는 대상</div><div class="v">하루 수십억 요청 규모에서의 LLM serving cost — 비실시간 path에 LLM을 두고 결과를 캐시.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">latency-sensitive / latency-tolerant 모듈 분리 패턴은 §2.8 system-level의 cascade와 같은 사고방식. business objective (GMV)에 DPO를 적용한 industry 사례.</div>
+        <div class="k">주의점</div><div class="v">우리 시스템에 직접 적용 가능하다고 단정하지 않는다. workflow와 user 분포, business metric이 다르면 결론도 다르다.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <h3>4컬럼 요약</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>사례</th><th>핵심</th><th>관련 비용</th><th>연결 가능성</th><th>주의점</th></tr></thead>
+      <tbody>
+        <tr><td>PinnerSage (KDD 2020)</td><td>cluster + medoid로 user 표현</td><td>전체 history 반복 비교</td><td>"대표 단위 요약" 사고방식 (§2.5와 인접)</td><td>LLM·KD 메서드가 아님; embedding 기반</td></tr>
+        <tr><td>PinFM (RecSys 2025)</td><td>DCAT로 user KV 1회 + candidate cross-attend</td><td>candidate별 user-side computation</td><td>§2.6 SGLang/Pinterest Dedup과 같은 dedup 축</td><td>내부 측정치 — 외삽 불가</td></tr>
+        <tr><td>LEADRE (VLDB 2025)</td><td>latency-sensitive vs tolerant 분리 + DPO align</td><td>실시간 LLM serving cost</td><td>§2.8 cascade / hybrid deployment 패턴</td><td>광고 도메인 결과는 우리 task에 직접 외삽 안 됨</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="doc" id="db5">
+  <span class="sec-num">§6.5</span>
+  <h2>Qwen3-235B Teacher 관점의 보강 — Qwen3 TR · Every Expert Matters</h2>
+  <p><em>이 절은 Qwen3-235B를 teacher로 둘 때 참조할 수 있는 두 자료를 정리한다. Qwen3 TR은 family-internal distillation의 공식 recipe, Every Expert Matters는 MoE teacher의 KD 한계 분석.</em></p>
+
+  <div class="paper-cards">
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Qwen3 Technical Report</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+        <span class="badge gh"><a href="https://github.com/QwenLM/Qwen3" target="_blank" style="color:#fff;text-decoration:none">GitHub</a></span>
+      </div>
+      <div class="pc-meta">The Qwen Team (Alibaba) · <a href="https://arxiv.org/abs/2505.09388" target="_blank">arXiv:2505.09388</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">Qwen3 family (0.6B~235B-A22B MoE)의 학습 recipe 공개. 큰 flagship의 비싼 4단계 post-training 대신, 소형 모델에는 <strong>off-policy distillation</strong>(teacher의 /think 또는 /no_think 모드 response를 student SFT target) + <strong>on-policy distillation</strong>(student 생성에 대한 teacher logits KL)을 2단계로 적용. <code>/think</code> · <code>/no_think</code> soft switch로 thinking mode 전환.</div>
+        <div class="k">줄이는 대상</div><div class="v">소형 모델 학습 비용 — full RL training보다 효율적이라고 보고.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">teacher와 student가 같은 family면 tokenizer / chat template / format이 호환된다는 운영상 이점. §2.2 KD 메서드와 §2.7 decoding optimization (thinking mode)을 연결하는 공식 reference.</div>
+        <div class="k">주의점</div><div class="v">위 결과는 Qwen3 family 내부에서 검증된 recipe. 우리 task에 동일 효과가 재현된다는 보장은 없음. 또한 thinking mode는 latency를 증가시키므로 §2.7의 output length 논의와 함께 봐야 한다.</div>
+      </div>
+    </div>
+
+    <div class="paper-card">
+      <div class="pc-head">
+        <div class="pc-title">Every Expert Matters — Effective KD for MoE LLMs</div>
+        <span class="badge preprint">arXiv preprint</span>
+        <span class="badge direct">직접 실험 근거</span>
+        <em style="font-size:0.78rem;color:#64748b">(§2.2의 paper card도 참조)</em>
+      </div>
+      <div class="pc-meta">Gyeongman Kim, Gyouk Chu, Eunho Yang · <a href="https://arxiv.org/abs/2502.12947" target="_blank">arXiv:2502.12947</a></div>
+      <div class="pc-body">
+        <div class="k">핵심 아이디어</div><div class="v">MoE teacher에서 활성화되지 않은 expert도 가치 있는 지식을 가진다는 관찰. <strong>KA (Knowledge Augmentation)</strong> — non-activated expert sampling, <strong>SAR (Student-Aware Router)</strong> — student feedback으로 router 학습.</div>
+        <div class="k">줄이는 대상</div><div class="v">표준 MoE KD가 activated expert만 본다는 한계.</div>
+        <div class="k">왜 이 조사와 관련</div><div class="v">Qwen3-235B-A22B는 token당 22B만 활성화되는 MoE이므로, 기존 KD로는 teacher 용량의 일부만 student에 전달된다는 일반 가설을 검증한 사례.</div>
+        <div class="k">주의점</div><div class="v"><strong>적용 조건: teacher 내부(expert · routing) 접근 가능 여부 확인 필요.</strong> Qwen3-235B의 내부 expert에 학습 시 routing을 강제하거나 sample할 수 있어야 KA/SAR가 의미. API-only 접근이라면 적용 불가능.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note-box">
+    <h4>§2.2 / §2.7과의 연결</h4>
+    <p>이 절의 두 자료는 본문 §2.2 (KD objective) / §2.7 (decoding optimization)에서 다룬 메서드를 Qwen3-235B teacher 관점에서 재정리한 reference이다. 별도 결론을 제시하지 않으며, 각각의 적용 조건이 어떻게 다른지 보여주는 목적이다.</p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ §7 Appendix (was §6) ════════════ -->
+<section class="doc" id="appendix">
+  <span class="sec-num">§7 Appendix</span>
+  <h2>Profile Agent 적용 가능성</h2>
+
+  <p><em>아래 내용은 확정 설계가 아니라, 앞서 정리한 방법론(§2)과 domain bridge 사례(§6)를 Profile Agent에 대입했을 때의 적용 가능성 정리다. 본 부록은 짧게 유지하며, Step별 mapping과 검증 필요 가설만 담는다. §6의 도메인 reference를 여기에 반복하지 않는다.</em></p>
+
+  <h3>A. Profile Agent 4-step workflow 요약</h3>
+
+  <div class="concept-diagram">
+    <div class="cd-title">Diagram D9 — Profile Management Agent 4-step</div>
+    <div class="cd-horizontal">
+      <div class="cd-box">Step 1<br><span style="font-weight:400;font-size:0.72rem;color:#64748b">사용자 정보 압축</span></div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box">Step 2<br><span style="font-weight:400;font-size:0.72rem;color:#64748b">신호 병합</span></div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box">Step 3<br><span style="font-weight:400;font-size:0.72rem;color:#64748b">candidate note 생성</span></div>
+      <div class="cd-arrow">→</div>
+      <div class="cd-box">Step 4<br><span style="font-weight:400;font-size:0.72rem;color:#64748b">기존 노트와 병합</span></div>
+    </div>
+  </div>
+
+  <ul>
+    <li><strong>Step 1.</strong> raw implicit log + explicit text → implicit/explicit summary</li>
+    <li><strong>Step 2.</strong> implicit + explicit summary → merged user context (evidence consolidation)</li>
+    <li><strong>Step 3.</strong> merged context → structured candidate note (schema 기반)</li>
+    <li><strong>Step 4.</strong> candidate note + existing note tree → <code>update</code> / <code>merge</code> / <code>create</code> / <code>no_update</code> 결정</li>
+  </ul>
+
+  <div class="note-box">
+    <h4>참고: 이 workflow는 tool-calling agent가 아니다</h4>
+    <p>외부 tool 호출이 없고, Step 4의 "action"도 schema 안의 결정값이다. 따라서 §1.2의 ACBench Action Execution 지표 중 <strong>tool-call accuracy / executable call rate는 우리 task의 직접 risk가 아니다.</strong> 다만 schema validity / merge-decision correctness / long-context fidelity는 직접 risk다.</p>
+  </div>
+
+  <h3>B. Taxonomy와의 매핑표 (적용 가능성)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Profile Agent 단계</th><th>적용 가능한 방법론</th><th>기대 효과 (가설)</th><th>위험</th><th>검증해야 할 지표</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Step 1. 사용자 정보 압축</td>
+          <td>§2.2 Response KD + §2.3 데이터 설계 (Agent-FLAN 능력 분리 + negative sample) + 비-LLM input aggregation</td>
+          <td>235B 1회 호출을 10B student 1회 호출로 대체 가능</td>
+          <td>입력 단 비-LLM aggregation이 없으면 student 비용 효과가 제한</td>
+          <td>schema validity, factor classification accuracy, p95 latency</td>
+        </tr>
+        <tr>
+          <td>Step 2. 신호 병합</td>
+          <td>§2.2 Preference KD (DPO / PLaD)</td>
+          <td>충돌 신호 (implicit vs explicit) 병합을 chosen/rejected pair로 학습</td>
+          <td>충돌 비율이 낮으면 preference 데이터 가치가 작음. pair 자동 생성의 일관성도 risk</td>
+          <td>conflict resolution accuracy, preference pair self-consistency rate</td>
+        </tr>
+        <tr>
+          <td>Step 3. candidate note 생성</td>
+          <td>§2.2 schema-constrained response KD + §2.4 schema 내재화 (Internalizing Tool Knowledge 패턴 — tool → schema 치환)</td>
+          <td>schema validity 우선 보존하면서 token 절감</td>
+          <td>schema 변경 시 재학습 필요. ranking 모델이 schema field를 실제로 활용하는지 검증 선행</td>
+          <td>schema validity, factor classification, evidence preservation</td>
+        </tr>
+        <tr>
+          <td>Step 4. 기존 노트와 병합</td>
+          <td>§2.5 trajectory pruning (top-k retrieval) + §2.6 batch decision + §2.3 [REASON]/[ACT] 분리 학습 + fallback</td>
+          <td>기존 노트 N개에 대한 N번 호출을 1번 batch + 일부 fallback으로 대체</td>
+          <td>top-k retrieval이 실제 merge 대상 노트를 놓치면 wrong create 또는 wrong no_update</td>
+          <td>target note recall@k, merge action accuracy, fallback rate, wrong overwrite rate</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>C. 검증 필요 가설 (실험 protocol 후보)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th style="width:5%">#</th><th>가설</th><th style="width:32%">falsification 조건</th><th style="width:18%">1차 측정 지표</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>C1</td><td>Step 1~3 통합 호출이 분리 호출보다 latency·정확도 양쪽에서 낫다</td><td>통합 호출의 schema validity가 분리 호출 대비 -5%p 이상 떨어진다</td><td>schema validity / latency p95</td></tr>
+        <tr><td>C2</td><td>Step 4 top-k retrieval이 실제 merge 대상 노트를 놓치지 않는다</td><td>recall@k가 정한 threshold (예: ≥95%) 미만</td><td>recall@k</td></tr>
+        <tr><td>C3</td><td>10B student가 schema validity와 action accuracy를 유지한다</td><td>schema validity가 235B teacher 대비 -3%p 이상</td><td>schema validity (per Step)</td></tr>
+        <tr><td>C4</td><td>fallback rate가 비용 절감 효과를 상쇄하지 않는다</td><td>(student cost + fallback rate × teacher cost) ≥ baseline teacher cost</td><td>fallback rate × teacher cost ratio</td></tr>
+        <tr><td>C5</td><td>preference pair를 안정적으로 만들 수 있다 (Step 2/4)</td><td>teacher의 두 후보 평가 inter-rater agreement &lt; 0.7</td><td>preference pair self-consistency rate</td></tr>
+        <tr><td>C6</td><td>tool-calling agent 평가지표는 우리 risk가 아니다 (scope 가설)</td><td>워크플로우에 외부 tool call이 도입되면 본 항 재평가</td><td>— (현재 N/A 상태 유지)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="verify-box">
+    <h4>적용 시 의무 사항</h4>
+    <p>위 가설을 본문 §2의 일반 방법론처럼 인용하지 않는다. 각 가설은 <code>experiment-protocol-writer</code>로 protocol화한 뒤 측정해야 하며, latency p50/p95/p99와 quality risk (schema validity, factor classification, merge correctness 등)를 함께 측정한다. cost per successful task가 baseline 대비 개선되지 않으면 채택하지 않는다.</p>
+  </div>
+
+  <h3>D. Serving / Decoding 관점에서의 추가 연결 가능성</h3>
+  <p><em>아래 내용은 확정 설계가 아니라 §2.6 (Serving) / §2.7 (Decoding) 카테고리를 Profile Agent에 연결할 때의 적용 가능성 정리다.</em></p>
+  <ul>
+    <li><strong>SGLang 류 (repeated prefix / KV reuse) 연결 가능성</strong>: Step 1~4의 prompt에 반복되는 instruction · schema · persona · parent context가 충분히 많다면 SGLang의 RadixAttention과 <strong>연결 가능성</strong>이 있다. 단 실제 이득은 prefix 공유 길이 / 호출 빈도 / serving runtime 지원 여부에 따라 달라진다.</li>
+    <li><strong>CacheGen 류 (KV cache compression / streaming) 검토</strong>: 긴 user profile이나 parent context를 반복 재사용한다면 <strong>검토 가능성</strong>이 있다. 단 KV cache를 저장·전송하는 serving architecture가 전제다. 단순히 prompt가 길다는 이유만으로 적용되지 않는다.</li>
+    <li><strong>Speculative decoding 도입 전 우선 확인 사항</strong>: Step 1 또는 Step 4의 output JSON이 길거나 reasoning이 장황하다면, <strong>먼저 output length 제한과 Qwen3 thinking / non-thinking mode 전환</strong>을 확인해야 한다. Decoding optimization은 그 다음 단계다.</li>
+    <li><strong>MTP는 모델 지원 확인이 선행</strong>: Qwen3-235B의 native MTP 지원 여부 확인 전에 MTP를 적용안에 포함하지 않는다. native가 없으면 EAGLE 또는 draft model speculation을 대안으로 검토.</li>
+    <li><strong>Medusa · EAGLE 학습 비용</strong>: head 또는 speculator 학습이 필요한 메서드는 학습 파이프라인 수정 권한이 있을 때만 검토. 그렇지 않으면 Lookahead Decoding처럼 학습이 필요 없는 메서드를 먼저 검토.</li>
+  </ul>
+  <div class="verify-box">
+    <h4>이 절의 한계</h4>
+    <p>위 항목은 모두 <strong>적용 가능성 / 조건부 검토</strong>이며, 우선순위 매기지 않는다. 실제 채택은 측정 결과에 따른다. 본 부록은 본문 §2의 일반 방법론을 우리 task에 매핑하는 정리일 뿐, 채택 결정은 별도 실험 protocol 단계에서 이루어진다.</p>
+  </div>
+
+  <h3>E. 참고 schema 예시 (Step 3)</h3>
+  <pre style="background:#1a1a2e;color:#e2e8f0;border-radius:6px;padding:14px 18px;font-size:0.78rem;font-family:'Courier New',monospace;overflow-x:auto;line-height:1.55"><code>{
+  "candidate_notes": [
+    {
+      "factor": "ambience",
+      "polarity": "positive",
+      "note": "조용하고 대화하기 좋은 카페를 선호",
+      "evidence": [
+        { "source": "review", "text": "조용해서 좋았다" },
+        { "source": "save",   "count": 3 }
+      ],
+      "confidence": 0.86,
+      "update_priority": "high"
+    }
+  ]
+}</code></pre>
+  <p style="font-size:0.82rem;color:#64748b;font-style:italic">위 schema는 ranking·retrieval에 쓰일 수 있는 단위 예시. 실제 schema는 downstream 모델 요구사항에 따라 결정.</p>
+</section>
+
+<hr class="divider">
+
+<section class="doc">
+  <span class="sec-num">원본 자료 · 검증 트레일</span>
+  <h2>References &amp; verification trail</h2>
+  <ul>
+    <li><a href="llm_compression_papers.html">paper-search/llm_compression_papers.html</a> — 25편 phase-by-phase 정리 (1차 소스)</li>
+    <li><a href="profile_agent_kd_strategy.html">paper-search/profile_agent_kd_strategy.html</a> — 21편 + Profile Agent Step별 가설 (본 문서에서는 Appendix만 사용)</li>
+    <li><a href="verification.md">paper-search/verification.md</a> — llm_compression_papers.html의 19편 검증 트레일</li>
+    <li><a href="../docs/agent_llm_compression_rebuild_plan.md">docs/agent_llm_compression_rebuild_plan.md</a> — 본 HTML의 설계 문서</li>
+    <li><a href="../docs/agent_llm_compression_validation_report.md">docs/agent_llm_compression_validation_report.md</a> — 본 HTML 작성 시 figure / paper / venue 검증 결과</li>
+  </ul>
+
+  <h3>본 문서의 caveat</h3>
+  <ul>
+    <li>모든 figure는 외부 이미지 대신 HTML/CSS concept diagram이다. 원본 figure가 필요하면 paper의 arXiv link를 참조.</li>
+    <li>"venue 확인 필요" 마킹은 검증 트레일에서 직접 proceedings 페이지를 확인하지 못한 경우다. 본문 인용 시에는 caveat과 함께 사용.</li>
+    <li>수치 인용 시 원문의 6조건 (hardware / batch / sequence / model / serving engine / task)이 명시된 경우만 그대로 사용했다. 그 외 수치는 "원문 조건 명시" 또는 "원문 참조" 표기.</li>
+    <li>Profile Agent 적용 부분은 모두 가설이며, 본 문서에서 권장으로 격상되지 않는다.</li>
+  </ul>
+</section>
+
+<footer>Agent LLM 경량화 방법론 조사 · 2026-05-29 · 22편 참조 · 6 카테고리 · HTML/CSS 자체 작성 (외부 이미지 의존 0)</footer>
+
+</main>
+</body>
+</html>
